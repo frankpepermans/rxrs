@@ -15,6 +15,7 @@ pub struct PublishSubject<T> {
 impl<T: Clone + Unpin> Subject for PublishSubject<T> {
     type Item = T;
 
+    #[allow(refining_impl_trait)]
     fn subscribe(&mut self) -> DeferStream<Self::Item> {
         let mut stream = StreamController::new();
 
