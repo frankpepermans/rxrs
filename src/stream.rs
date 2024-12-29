@@ -1,2 +1,2 @@
-pub(crate) mod stream_controller;
-pub(crate) mod stream_defer;
+pub mod controller;
+pub mod defer;

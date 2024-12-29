@@ -3,7 +3,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::{stream::stream_defer::DeferStream, StreamController};
+use crate::stream::{controller::StreamController, defer::DeferStream};
 
 use super::Subject;
 
@@ -16,7 +16,7 @@ pub struct BehaviorSubject<T> {
 impl<T: Clone + Unpin> Subject for BehaviorSubject<T> {
     type Item = T;
 
-    fn subscribe(&mut self) -> Rc<DeferStream<Self::Item>> {
+    fn subscribe(&mut self) -> DeferStream<Self::Item> {
         let mut stream = StreamController::new();
 
         stream.is_done = self.is_closed;
@@ -26,10 +26,10 @@ impl<T: Clone + Unpin> Subject for BehaviorSubject<T> {
         self.subscriptions.push(Rc::downgrade(&stream));
 
         if let Some(event) = &self.latest_event {
-            stream.inner.borrow_mut().push(event.clone());
+            stream.inner.borrow_mut().push(Rc::clone(&event));
         }
 
-        stream
+        <DeferStream<Self::Item> as Clone>::clone(&stream)
     }
 
     fn close(&mut self) {
@@ -43,10 +43,10 @@ impl<T: Clone + Unpin> Subject for BehaviorSubject<T> {
     fn push(&mut self, value: Self::Item) {
         let rc = Rc::new(value);
 
-        self.latest_event = Some(rc.clone());
+        self.latest_event = Some(Rc::clone(&rc));
 
         for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.inner.borrow_mut().push(rc.clone());
+            sub.inner.borrow_mut().push(Rc::clone(&rc));
         }
     }
 }

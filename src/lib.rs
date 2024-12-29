@@ -1,7 +1,9 @@
-pub(crate) mod stream;
-pub(crate) mod subject;
+pub mod stream;
+pub mod subject;
 
-pub use crate::{
-    stream::stream_controller::StreamController,
-    subject::{behavior_subject::BehaviorSubject, publish_subject::PublishSubject, Subject},
-};
+pub mod prelude {
+    pub use crate::stream::*;
+    pub use crate::subject::behavior_subject::*;
+    pub use crate::subject::publish_subject::*;
+    pub use crate::subject::*;
+}

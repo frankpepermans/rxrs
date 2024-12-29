@@ -1,11 +1,4 @@
-use std::{
-    collections::VecDeque,
-    pin::Pin,
-    rc::Rc,
-    task::{Context, Poll},
-};
-
-use futures::Stream;
+use std::{collections::VecDeque, rc::Rc, task::Poll};
 
 #[derive(Clone)]
 pub struct StreamController<T> {
@@ -13,7 +6,7 @@ pub struct StreamController<T> {
     pub(crate) is_done: bool,
 }
 
-impl<T> StreamController<T> {
+impl<T: Clone> StreamController<T> {
     pub(crate) fn new() -> Self {
         Self {
             buffer: VecDeque::new(),
@@ -24,18 +17,12 @@ impl<T> StreamController<T> {
     pub(crate) fn push(&mut self, value: Rc<T>) {
         self.buffer.push_back(value);
     }
-}
 
-impl<T: Unpin> Stream for StreamController<T> {
-    type Item = Rc<T>;
-
-    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let this = self.get_mut();
-
-        match this.buffer.pop_front() {
-            Some(it) => Poll::Ready(Some(it)),
+    pub(crate) fn next(&mut self) -> Poll<Option<T>> {
+        match self.buffer.pop_front() {
+            Some(it) => Poll::Ready(Some(it.as_ref().to_owned())),
             None => {
-                if this.is_done {
+                if self.is_done {
                     Poll::Ready(None)
                 } else {
                     Poll::Pending
