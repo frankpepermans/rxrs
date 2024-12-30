@@ -9,21 +9,28 @@ use futures::Stream;
 
 use crate::prelude::*;
 
-#[derive(Clone)]
 pub struct DeferStream<T> {
-    pub(crate) inner: RefCell<StreamController<T>>,
+    pub(crate) inner: RefCell<StreamController<Event<T>>>,
 }
 
-impl<T: Unpin> DeferStream<T> {
-    pub(crate) fn new(inner: RefCell<StreamController<T>>) -> Self {
+impl<T> DeferStream<T> {
+    pub(crate) fn new(inner: RefCell<StreamController<Event<T>>>) -> Self {
         Self { inner }
     }
 }
 
-impl<T: Clone> Stream for DeferStream<T> {
-    type Item = T;
+impl<T> Stream for DeferStream<T> {
+    type Item = Event<T>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.get_mut().inner.borrow_mut().next()
+    }
+}
+
+impl<T> Clone for DeferStream<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
     }
 }

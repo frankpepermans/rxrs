@@ -3,7 +3,10 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::stream::{controller::StreamController, defer::DeferStream};
+use crate::{
+    prelude::Event,
+    stream::{controller::StreamController, defer::DeferStream},
+};
 
 use super::Subject;
 
@@ -13,7 +16,7 @@ pub struct BehaviorSubject<T> {
     latest_event: Option<Rc<T>>,
 }
 
-impl<T: Clone + Unpin> Subject for BehaviorSubject<T> {
+impl<T: Unpin> Subject for BehaviorSubject<T> {
     type Item = T;
 
     #[allow(refining_impl_trait)]
@@ -27,7 +30,7 @@ impl<T: Clone + Unpin> Subject for BehaviorSubject<T> {
         self.subscriptions.push(Rc::downgrade(&stream));
 
         if let Some(event) = &self.latest_event {
-            stream.inner.borrow_mut().push(Rc::clone(&event));
+            stream.inner.borrow_mut().push(Event(Rc::clone(&event)));
         }
 
         <DeferStream<Self::Item> as Clone>::clone(&stream)
@@ -47,7 +50,7 @@ impl<T: Clone + Unpin> Subject for BehaviorSubject<T> {
         self.latest_event = Some(Rc::clone(&rc));
 
         for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.inner.borrow_mut().push(Rc::clone(&rc));
+            sub.inner.borrow_mut().push(Event(Rc::clone(&rc)));
         }
     }
 }

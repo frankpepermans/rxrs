@@ -3,7 +3,10 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::stream::{controller::StreamController, defer::DeferStream};
+use crate::{
+    prelude::Event,
+    stream::{controller::StreamController, defer::DeferStream},
+};
 
 use super::Subject;
 
@@ -12,7 +15,7 @@ pub struct PublishSubject<T> {
     is_closed: bool,
 }
 
-impl<T: Clone + Unpin> Subject for PublishSubject<T> {
+impl<T: Unpin> Subject for PublishSubject<T> {
     type Item = T;
 
     #[allow(refining_impl_trait)]
@@ -40,7 +43,7 @@ impl<T: Clone + Unpin> Subject for PublishSubject<T> {
         let rc = Rc::new(value);
 
         for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.inner.borrow_mut().push(rc.clone());
+            sub.inner.borrow_mut().push(Event(rc.clone()));
         }
     }
 }
