@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     prelude::Event,
-    stream::{controller::StreamController, defer::DeferStream},
+    stream::{consumable::ConsumableStream, controller::StreamController, defer::DeferStream},
 };
 
 use super::Subject;
@@ -15,11 +15,10 @@ pub struct PublishSubject<T> {
     is_closed: bool,
 }
 
-impl<T: Unpin> Subject for PublishSubject<T> {
+impl<T> Subject for PublishSubject<T> {
     type Item = T;
 
-    #[allow(refining_impl_trait)]
-    fn subscribe(&mut self) -> DeferStream<Self::Item> {
+    fn subscribe(&mut self) -> ConsumableStream<Self::Item> {
         let mut stream = StreamController::new();
 
         stream.is_done = self.is_closed;
@@ -28,7 +27,7 @@ impl<T: Unpin> Subject for PublishSubject<T> {
 
         self.subscriptions.push(Rc::downgrade(&stream));
 
-        <DeferStream<Self::Item> as Clone>::clone(&stream)
+        ConsumableStream::new(stream)
     }
 
     fn close(&mut self) {

@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
     pin::Pin,
+    rc::Rc,
     task::{Context, Poll},
 };
 
@@ -17,6 +18,10 @@ impl<T> DeferStream<T> {
     pub(crate) fn new(inner: RefCell<StreamController<Event<T>>>) -> Self {
         Self { inner }
     }
+
+    pub fn consume(self: Rc<Self>) -> Option<Self> {
+        Rc::into_inner(self)
+    }
 }
 
 impl<T> Stream for DeferStream<T> {
@@ -24,13 +29,5 @@ impl<T> Stream for DeferStream<T> {
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.get_mut().inner.borrow_mut().next()
-    }
-}
-
-impl<T> Clone for DeferStream<T> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
     }
 }

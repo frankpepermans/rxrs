@@ -1,12 +1,12 @@
 use std::{collections::VecDeque, task::Poll};
 
 #[derive(Clone)]
-pub struct StreamController<T: Clone> {
+pub struct StreamController<T> {
     buffer: VecDeque<T>,
     pub(crate) is_done: bool,
 }
 
-impl<T: Clone> StreamController<T> {
+impl<T> StreamController<T> {
     pub(crate) fn new() -> Self {
         Self {
             buffer: VecDeque::new(),
@@ -19,6 +19,7 @@ impl<T: Clone> StreamController<T> {
     }
 
     pub(crate) fn next(&mut self) -> Poll<Option<T>> {
+        println!("next: {}", self.buffer.len());
         match self.buffer.pop_front() {
             Some(it) => Poll::Ready(Some(it)),
             None => {

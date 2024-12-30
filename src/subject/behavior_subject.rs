@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     prelude::Event,
-    stream::{controller::StreamController, defer::DeferStream},
+    stream::{consumable::ConsumableStream, controller::StreamController, defer::DeferStream},
 };
 
 use super::Subject;
@@ -16,11 +16,10 @@ pub struct BehaviorSubject<T> {
     latest_event: Option<Rc<T>>,
 }
 
-impl<T: Unpin> Subject for BehaviorSubject<T> {
+impl<T> Subject for BehaviorSubject<T> {
     type Item = T;
 
-    #[allow(refining_impl_trait)]
-    fn subscribe(&mut self) -> DeferStream<Self::Item> {
+    fn subscribe(&mut self) -> ConsumableStream<Self::Item> {
         let mut stream = StreamController::new();
 
         stream.is_done = self.is_closed;
@@ -33,7 +32,7 @@ impl<T: Unpin> Subject for BehaviorSubject<T> {
             stream.inner.borrow_mut().push(Event(Rc::clone(&event)));
         }
 
-        <DeferStream<Self::Item> as Clone>::clone(&stream)
+        ConsumableStream::new(stream)
     }
 
     fn close(&mut self) {
