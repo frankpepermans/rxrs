@@ -1,7 +1,6 @@
 use std::{
     cell::RefCell,
     pin::Pin,
-    rc::Rc,
     task::{Context, Poll},
 };
 
@@ -10,17 +9,13 @@ use futures::Stream;
 
 use crate::prelude::*;
 
-pub struct DeferStream<T> {
+pub(crate) struct DeferStream<T> {
     pub(crate) inner: RefCell<StreamController<Event<T>>>,
 }
 
 impl<T> DeferStream<T> {
     pub(crate) fn new(inner: RefCell<StreamController<Event<T>>>) -> Self {
         Self { inner }
-    }
-
-    pub fn consume(self: Rc<Self>) -> Option<Self> {
-        Rc::into_inner(self)
     }
 }
 

@@ -19,7 +19,6 @@ impl<T> StreamController<T> {
     }
 
     pub(crate) fn next(&mut self) -> Poll<Option<T>> {
-        println!("next: {}", self.buffer.len());
         match self.buffer.pop_front() {
             Some(it) => Poll::Ready(Some(it)),
             None => {

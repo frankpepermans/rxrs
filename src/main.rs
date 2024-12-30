@@ -5,6 +5,7 @@ use rxrs::prelude::*;
 
 fn main() {
     let mut ctrl = PublishSubject::new();
+    let stream_a = ctrl.subscribe();
     let stream_b = ctrl.subscribe();
 
     ctrl.push(_Event::new(1));
@@ -12,12 +13,12 @@ fn main() {
     ctrl.push(_Event::new(3));
     ctrl.close();
 
+    drop(stream_a);
+
     //let stream_a = ctrl.subscribe();
 
     block_on(async {
         let res_b = stream_b
-            .into_stream()
-            .unwrap()
             .inspect(|it| println!("{:?}", it))
             .map(|it| it.try_unwrap())
             .collect::<Vec<_>>()
