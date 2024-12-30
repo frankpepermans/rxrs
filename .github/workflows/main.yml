@@ -49,7 +49,7 @@ jobs:
           command: test
           args: --all-features
 
-  rustfmt:
+  fmt:
     name: rust code format style check
     runs-on: ubuntu-latest
     steps:
