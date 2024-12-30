@@ -47,6 +47,7 @@ impl<T> Subject for PublishSubject<T> {
     }
 }
 
+#[allow(clippy::new_without_default)]
 impl<T> PublishSubject<T> {
     pub fn new() -> Self {
         Self {

@@ -36,7 +36,7 @@ impl<T> Subject for ReplaySubject<T> {
         self.subscriptions.push(Rc::downgrade(&stream));
 
         for event in &self.buffer {
-            stream.borrow_mut().push(Event(Rc::clone(&event)));
+            stream.borrow_mut().push(Event(Rc::clone(event)));
         }
 
         Observable::new(stream)
@@ -67,6 +67,7 @@ impl<T> Subject for ReplaySubject<T> {
     }
 }
 
+#[allow(clippy::new_without_default)]
 impl<T> ReplaySubject<T> {
     pub fn new() -> Self {
         Self {
