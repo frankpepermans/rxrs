@@ -23,6 +23,6 @@ impl<T> Stream for Observable<T> {
     type Item = Event<T>;
 
     fn poll_next(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.as_mut().inner.borrow_mut().next()
+        self.as_mut().inner.borrow_mut().pop()
     }
 }

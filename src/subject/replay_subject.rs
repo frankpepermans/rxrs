@@ -50,7 +50,7 @@ impl<T> Subject for ReplaySubject<T> {
         }
     }
 
-    fn push(&mut self, value: Self::Item) {
+    fn next(&mut self, value: Self::Item) {
         let rc = Rc::new(value);
 
         if let ReplayStrategy::BufferSize(size) = &self.replay_strategy {

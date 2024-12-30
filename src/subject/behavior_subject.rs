@@ -43,7 +43,7 @@ impl<T> Subject for BehaviorSubject<T> {
         }
     }
 
-    fn push(&mut self, value: Self::Item) {
+    fn next(&mut self, value: Self::Item) {
         let rc = Rc::new(value);
 
         self.latest_event = Some(Rc::clone(&rc));

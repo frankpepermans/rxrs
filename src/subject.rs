@@ -9,5 +9,5 @@ pub trait Subject {
 
     fn subscribe(&mut self) -> Observable<Self::Item>;
     fn close(&mut self);
-    fn push(&mut self, value: Self::Item);
+    fn next(&mut self, value: Self::Item);
 }

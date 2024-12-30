@@ -18,7 +18,7 @@ impl<T> Controller<T> {
         self.buffer.push_back(value);
     }
 
-    pub(crate) fn next(&mut self) -> Poll<Option<T>> {
+    pub(crate) fn pop(&mut self) -> Poll<Option<T>> {
         match self.buffer.pop_front() {
             Some(it) => Poll::Ready(Some(it)),
             None => {
