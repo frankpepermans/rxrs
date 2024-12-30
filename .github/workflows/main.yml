@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  issues: write
+  checks: write
 
 name: base check
 jobs:
