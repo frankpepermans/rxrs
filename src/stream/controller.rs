@@ -1,12 +1,12 @@
 use std::{collections::VecDeque, task::Poll};
 
 #[derive(Clone)]
-pub struct StreamController<T> {
+pub struct Controller<T> {
     buffer: VecDeque<T>,
     pub(crate) is_done: bool,
 }
 
-impl<T> StreamController<T> {
+impl<T> Controller<T> {
     pub(crate) fn new() -> Self {
         Self {
             buffer: VecDeque::new(),

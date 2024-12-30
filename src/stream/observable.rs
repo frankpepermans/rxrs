@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     pin::Pin,
     rc::Rc,
     task::{Context, Poll},
@@ -6,14 +7,14 @@ use std::{
 
 use futures::Stream;
 
-use super::{defer::DeferStream, event::Event};
+use super::{controller::Controller, event::Event};
 
 pub struct Observable<T> {
-    inner: Rc<DeferStream<T>>,
+    inner: Rc<RefCell<Controller<Event<T>>>>,
 }
 
 impl<T> Observable<T> {
-    pub(crate) fn new(inner: Rc<DeferStream<T>>) -> Self {
+    pub(crate) fn new(inner: Rc<RefCell<Controller<Event<T>>>>) -> Self {
         Self { inner }
     }
 }
@@ -22,6 +23,6 @@ impl<T> Stream for Observable<T> {
     type Item = Event<T>;
 
     fn poll_next(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.as_mut().inner.inner.borrow_mut().next()
+        self.as_mut().inner.borrow_mut().next()
     }
 }

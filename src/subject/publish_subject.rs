@@ -5,13 +5,13 @@ use std::{
 
 use crate::{
     prelude::Event,
-    stream::{controller::StreamController, defer::DeferStream, observable::Observable},
+    stream::{controller::Controller, observable::Observable},
 };
 
 use super::Subject;
 
 pub struct PublishSubject<T> {
-    subscriptions: Vec<Weak<DeferStream<T>>>,
+    subscriptions: Vec<Weak<RefCell<Controller<Event<T>>>>>,
     is_closed: bool,
 }
 
@@ -19,11 +19,11 @@ impl<T> Subject for PublishSubject<T> {
     type Item = T;
 
     fn subscribe(&mut self) -> Observable<Self::Item> {
-        let mut stream = StreamController::new();
+        let mut stream = Controller::new();
 
         stream.is_done = self.is_closed;
 
-        let stream = Rc::new(DeferStream::new(RefCell::new(stream)));
+        let stream = Rc::new(RefCell::new(stream));
 
         self.subscriptions.push(Rc::downgrade(&stream));
 
@@ -34,7 +34,7 @@ impl<T> Subject for PublishSubject<T> {
         self.is_closed = true;
 
         for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.inner.borrow_mut().is_done = true;
+            sub.borrow_mut().is_done = true;
         }
     }
 
@@ -42,7 +42,7 @@ impl<T> Subject for PublishSubject<T> {
         let rc = Rc::new(value);
 
         for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.inner.borrow_mut().push(Event(rc.clone()));
+            sub.borrow_mut().push(Event(rc.clone()));
         }
     }
 }
