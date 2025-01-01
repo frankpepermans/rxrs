@@ -6,8 +6,6 @@ use std::{
 use futures::{stream::FusedStream, Stream};
 use pin_project_lite::pin_project;
 
-use crate::delegate_access_inner;
-
 use crate::{Event, EventStream};
 
 pin_project! {
@@ -25,8 +23,6 @@ impl<S: Stream> IntoRefStream<S> {
             stream: EventStream::new(stream),
         }
     }
-
-    delegate_access_inner!(stream, EventStream<S::Item, S>, ());
 }
 
 impl<S> FusedStream for IntoRefStream<S>
