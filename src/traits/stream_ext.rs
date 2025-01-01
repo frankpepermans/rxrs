@@ -1,13 +1,33 @@
-use std::{
-    pin::Pin,
-    task::{Context, Poll},
-};
+use futures::Stream;
+use into_ref_steam::IntoRefStream;
+use race::Race;
 
-use futures::{ready, stream::FusedStream, Stream};
-use pin_project_lite::pin_project;
+use crate::events::Event;
 
-use crate::events::{Event, EventStream};
+pub mod into_ref_steam;
+pub mod race;
 
+impl<T: ?Sized> RxStreamExt for T where T: Stream {}
+pub trait RxStreamExt: Stream {
+    fn into_ref_stream(self) -> IntoRefStream<Self>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Event<Self::Item>, _>(IntoRefStream::new(self))
+    }
+
+    fn race<S: Stream<Item = Self::Item> + Sized + Unpin>(
+        self,
+        other: S,
+    ) -> Race<Self, S, Self::Item>
+    where
+        Self: Sized + Unpin,
+    {
+        assert_stream::<Self::Item, _>(Race::new(self, other))
+    }
+}
+
+#[macro_export]
 macro_rules! delegate_access_inner {
     ($field:ident, $inner:ty, ($($ind:tt)*)) => {
         /// Acquires a reference to the underlying sink or stream that this combinator is
@@ -41,61 +61,6 @@ macro_rules! delegate_access_inner {
         pub fn into_inner(self) -> $inner {
             self.$field $($ind into_inner())*
         }
-    }
-}
-
-impl<T: ?Sized> RxStreamExt for T where T: Stream {}
-pub trait RxStreamExt: Stream {
-    fn into_ref_stream(self) -> IntoRefStream<Self>
-    where
-        Self: Sized,
-    {
-        assert_stream::<Event<Self::Item>, _>(IntoRefStream::new(self))
-    }
-}
-
-pin_project! {
-    /// Stream for the [`into_ref_stream`](RxStreamExt::into_ref_stream) method.
-    #[must_use = "streams do nothing unless polled"]
-    pub struct IntoRefStream<S: Stream> {
-        #[pin]
-        stream: EventStream<S::Item, S>,
-    }
-}
-
-impl<S: Stream> IntoRefStream<S> {
-    pub(crate) fn new(stream: S) -> Self {
-        Self {
-            stream: EventStream::new(stream),
-        }
-    }
-
-    delegate_access_inner!(stream, EventStream<S::Item, S>, ());
-}
-
-impl<S> FusedStream for IntoRefStream<S>
-where
-    S: FusedStream,
-{
-    fn is_terminated(&self) -> bool {
-        self.stream.is_done()
-    }
-}
-
-impl<S> Stream for IntoRefStream<S>
-where
-    S: Stream,
-{
-    type Item = Event<S::Item>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mut this = self.project();
-        let res = ready!(this.stream.as_mut().poll_next(cx));
-        Poll::Ready(res)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.stream.size_hint()
     }
 }
 
