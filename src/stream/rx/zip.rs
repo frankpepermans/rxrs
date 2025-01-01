@@ -4,7 +4,7 @@ use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-macro_rules! combine_latest {
+macro_rules! zip {
     ($name:ident; $($stream:ident),+; $($type:ident),+) => {
         paste! {
             pin_project! {
@@ -34,7 +34,7 @@ macro_rules! combine_latest {
             }
         }
 
-        impl<$($stream: Stream<Item = $type>),+, $($type: ToOwned<Owned = $type>),+> FusedStream for $name<$($stream),+, $($type),+>
+        impl<$($stream: Stream<Item = $type>),+, $($type),+> FusedStream for $name<$($stream),+, $($type),+>
         {
             fn is_terminated(&self) -> bool {
                 paste! {
@@ -45,7 +45,7 @@ macro_rules! combine_latest {
             }
         }
 
-        impl<$($stream: Stream<Item = $type>),+, $($type: ToOwned<Owned = $type>),+> Stream for $name<$($stream),+, $($type),+>
+        impl<$($stream: Stream<Item = $type>),+, $($type),+> Stream for $name<$($stream),+, $($type),+>
         {
             type Item = ($($type),+);
 
@@ -63,29 +63,19 @@ macro_rules! combine_latest {
                 }
 
                 paste! {
-                    let mut did_update_value = false;
                     $(
-                        if !this.[<$stream:lower>].is_done() {
-                            let next = poll_next(this.[<$stream:lower>].as_mut(), cx);
-
-                            if !did_update_value {
-                                did_update_value = next.is_some();
-                            }
-
-                            if next.is_some() {
-                                *this.[<$type:lower>] = next;
-                            }
+                        if !this.[<$stream:lower>].is_done() && this.[<$type:lower>].is_none() {
+                            *this.[<$type:lower>] = poll_next(this.[<$stream:lower>].as_mut(), cx);
                         };
                     )+
 
-                    if did_update_value && $(this.[<$type:lower>].is_some())&&+ {
-                        // maybe to_owned can be avoided? Event/Rc?
+                    if $(this.[<$type:lower>].is_some())&&+ {
                         Poll::Ready(Some((
                             $(
-                                this.[<$type:lower>].as_ref().unwrap().to_owned()
+                                this.[<$type:lower>].take().unwrap()
                             ),+
                         )))
-                    } else if $(this.[<$stream:lower>].is_done())&&+ {
+                    } else if $(this.[<$stream:lower>].is_done())||+ {
                         Poll::Ready(None)
                     } else {
                         Poll::Pending
@@ -96,14 +86,14 @@ macro_rules! combine_latest {
     };
 }
 
-combine_latest!(CombineLatest2;S1,S2;T1,T2);
-combine_latest!(CombineLatest3;S1,S2,S3;T1,T2,T3);
-combine_latest!(CombineLatest4;S1,S2,S3,S4;T1,T2,T3,T4);
-combine_latest!(CombineLatest5;S1,S2,S3,S4,S5;T1,T2,T3,T4,T5);
-combine_latest!(CombineLatest6;S1,S2,S3,S4,S5,S6;T1,T2,T3,T4,T5,T6);
-combine_latest!(CombineLatest7;S1,S2,S3,S4,S5,S6,S7;T1,T2,T3,T4,T5,T6,T7);
-combine_latest!(CombineLatest8;S1,S2,S3,S4,S5,S6,S7,S8;T1,T2,T3,T4,T5,T6,T7,T8);
-combine_latest!(CombineLatest9;S1,S2,S3,S4,S5,S6,S7,S8,S9;T1,T2,T3,T4,T5,T6,T7,T8,T9);
+zip!(Zip2;S1,S2;T1,T2);
+zip!(Zip3;S1,S2,S3;T1,T2,T3);
+zip!(Zip4;S1,S2,S3,S4;T1,T2,T3,T4);
+zip!(Zip5;S1,S2,S3,S4,S5;T1,T2,T3,T4,T5);
+zip!(Zip6;S1,S2,S3,S4,S5,S6;T1,T2,T3,T4,T5,T6);
+zip!(Zip7;S1,S2,S3,S4,S5,S6,S7;T1,T2,T3,T4,T5,T6,T7);
+zip!(Zip8;S1,S2,S3,S4,S5,S6,S7,S8;T1,T2,T3,T4,T5,T6,T7,T8);
+zip!(Zip9;S1,S2,S3,S4,S5,S6,S7,S8,S9;T1,T2,T3,T4,T5,T6,T7,T8,T9);
 
 #[test]
 fn test() {
@@ -113,12 +103,12 @@ fn test() {
 
     let s1 = stream::iter([1, 2, 3]);
     let s2 = stream::iter([6, 7, 8, 9]);
-    let s3 = stream::iter([0]);
-    let stream = CombineLatest3::new(s1, s2, s3);
+    let s3 = stream::iter([10, 11, 12]);
+    let stream = Zip3::new(s1, s2, s3);
 
     block_on(async {
         let res = stream.collect::<Vec<_>>().await;
 
-        assert_eq!(res, [(1, 6, 0), (2, 7, 0), (3, 8, 0), (3, 9, 0),]);
+        assert_eq!(res, [(1, 6, 10), (2, 7, 11), (3, 8, 12),]);
     });
 }
