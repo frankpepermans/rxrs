@@ -39,8 +39,8 @@ impl<S1: Stream<Item = T>, S2: Stream<Item = T>, T> Race<S1, S2, T> {
 
 impl<S1: Stream<Item = T>, S2: Stream<Item = T>, T> FusedStream for Race<S1, S2, T>
 where
-    S1: FusedStream + Unpin,
-    S2: FusedStream + Unpin,
+    S1: FusedStream,
+    S2: FusedStream,
 {
     fn is_terminated(&self) -> bool {
         match &self.winner {

@@ -1,11 +1,13 @@
 use futures::Stream;
 use into_ref_steam::IntoRefStream;
 use race::Race;
+use start_with::StartWith;
 
 use crate::Event;
 
 pub mod into_ref_steam;
 pub mod race;
+pub mod start_with;
 
 impl<T: ?Sized> RxStreamExt for T where T: Stream {}
 pub trait RxStreamExt: Stream {
@@ -16,14 +18,18 @@ pub trait RxStreamExt: Stream {
         assert_stream::<Event<Self::Item>, _>(IntoRefStream::new(self))
     }
 
-    fn race<S: Stream<Item = Self::Item> + Sized + Unpin>(
-        self,
-        other: S,
-    ) -> Race<Self, S, Self::Item>
+    fn race<S: Stream<Item = Self::Item>>(self, other: S) -> Race<Self, S, Self::Item>
     where
-        Self: Sized + Unpin,
+        Self: Sized,
     {
         assert_stream::<Self::Item, _>(Race::new(self, other))
+    }
+
+    fn start_with(self, value: Self::Item) -> StartWith<Self>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Self::Item, _>(StartWith::new(self, value))
     }
 }
 
