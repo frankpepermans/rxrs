@@ -2,7 +2,7 @@ use futures::Stream;
 use into_ref_steam::IntoRefStream;
 use race::Race;
 
-use crate::events::Event;
+use crate::Event;
 
 pub mod into_ref_steam;
 pub mod race;

@@ -2,7 +2,7 @@ pub mod behavior_subject;
 pub mod publish_subject;
 pub mod replay_subject;
 
-use crate::stream::observable::Observable;
+use crate::Observable;
 
 pub trait Subject {
     type Item;

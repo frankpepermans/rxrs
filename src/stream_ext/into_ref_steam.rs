@@ -6,10 +6,9 @@ use std::{
 use futures::{stream::FusedStream, Stream};
 use pin_project_lite::pin_project;
 
-use crate::{
-    delegate_access_inner,
-    events::{Event, EventStream},
-};
+use crate::delegate_access_inner;
+
+use crate::{Event, EventStream};
 
 pin_project! {
     /// Stream for the [`into_ref_stream`](RxStreamExt::into_ref_stream) method.

@@ -6,7 +6,7 @@ use std::{
 
 use futures::{Stream, StreamExt};
 
-use super::controller::Controller;
+use crate::Controller;
 
 #[derive(Debug)]
 pub struct Event<T>(pub(crate) Rc<T>);

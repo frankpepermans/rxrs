@@ -7,7 +7,7 @@ use std::{
 
 use futures::Stream;
 
-use super::{controller::Controller, event::Event};
+use crate::{Controller, Event};
 
 pub struct Observable<T> {
     inner: Rc<RefCell<Controller<Event<T>>>>,

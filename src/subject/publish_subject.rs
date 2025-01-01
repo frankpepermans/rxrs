@@ -3,10 +3,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::{
-    prelude::Event,
-    stream::{controller::Controller, observable::Observable},
-};
+use crate::{Controller, Event, Observable};
 
 use super::Subject;
 
