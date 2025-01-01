@@ -1,16 +1,20 @@
-use futures::stream::Stream;
+use futures::stream::{Fuse, FusedStream, Stream, StreamExt};
 use paste::paste;
+use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 macro_rules! combine_latest {
     ($name:ident; $($stream:ident),+; $($type:ident),+) => {
         paste! {
-            pub struct $name<$($stream: Stream<Item = $type>),+, $($type),+> {
-                $(
-                    [<$stream:lower>]: Pin<Box<$stream>>,
-                    [<$type:lower>]: Option<$type>,
-                )+
+            pin_project! {
+                pub struct $name<$($stream: Stream<Item = $type>),+, $($type),+> {
+                    $(
+                        #[pin]
+                        [<$stream:lower>]: Fuse<$stream>,
+                        [<$type:lower>]: Option<$type>,
+                    )+
+                }
             }
         }
 
@@ -22,7 +26,7 @@ macro_rules! combine_latest {
                 ) -> Self {
                     $name {
                         $(
-                            [<$stream:lower>]: Box::pin([<$stream:lower>]),
+                            [<$stream:lower>]: [<$stream:lower>].fuse(),
                             [<$type:lower>]: None,
                         )+
                     }
@@ -30,53 +34,62 @@ macro_rules! combine_latest {
             }
         }
 
-        impl<$($stream: Stream<Item = $type>),+, $($type: Clone + Unpin),+> Stream for $name<$($stream),+, $($type),+>
+        impl<$($stream: Stream<Item = $type>),+, $($type: ToOwned<Owned = $type>),+> FusedStream for $name<$($stream),+, $($type),+>
+        {
+            fn is_terminated(&self) -> bool {
+                paste! {
+                    $(
+                        self.[<$stream:lower>].is_terminated()
+                    )&&+
+                }
+            }
+        }
+
+        impl<$($stream: Stream<Item = $type>),+, $($type: ToOwned<Owned = $type>),+> Stream for $name<$($stream),+, $($type),+>
         {
             type Item = ($($type),+);
 
             fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-                let this = self.get_mut();
+                let mut this = self.project();
 
                 fn poll_next<S: Stream<Item = T>, T>(
-                    stream: &mut Pin<Box<S>>,
+                    stream: Pin<&mut Fuse<S>>,
                     cx: &mut Context<'_>,
-                ) -> (Option<T>, bool) {
-                    match stream.as_mut().poll_next(cx) {
-                        Poll::Ready(Some(it)) => (Some(it), false),
-                        Poll::Ready(None) => (None, true),
-                        Poll::Pending => (None, false),
+                ) -> Option<T> {
+                    match stream.poll_next(cx) {
+                        Poll::Ready(Some(it)) => Some(it),
+                        _ => None,
                     }
                 }
 
                 paste! {
+                    let mut did_update_value = false;
                     $(
-                        let ([<event_ $stream:lower>], [<is_done_ $stream:lower>]) = poll_next(&mut this.[<$stream:lower>], cx);
-                    )+
-                    let did_update_value = $(
-                        [<event_ $stream:lower>].is_some()
-                    )||+;
-                    $(
-                        if [<event_ $stream:lower>].is_some() {
-                            this.[<$type:lower>] = [<event_ $stream:lower>];
-                        }
-                    )+
-                    let all_done = $(
-                        [<is_done_ $stream:lower>]
-                    )&&+;
-                    let all_emitted = $(
-                        this.[<$type:lower>].is_some()
-                    )&&+;
+                        if !this.[<$stream:lower>].is_done() {
+                            let next = poll_next(this.[<$stream:lower>].as_mut(), cx);
 
-                    let should_emit_next = all_emitted && did_update_value;
+                            if !did_update_value {
+                                did_update_value = next.is_some();
+                            }
 
-                    match (all_done, should_emit_next) {
-                        (true, _) => Poll::Ready(None),
-                        (false, true) => Poll::Ready(Some((
+                            if next.is_some() {
+                                *this.[<$type:lower>] = next;
+                            }
+                        };
+                    )+
+                    let should_emit_next = did_update_value && $(this.[<$type:lower>].is_some())&&+;
+
+                    if should_emit_next {
+                        // maybe to_owned can be avoided? Event/Rc?
+                        Poll::Ready(Some((
                             $(
                                 this.[<$type:lower>].as_ref().unwrap().to_owned()
                             ),+
-                        ))),
-                        _ => Poll::Pending,
+                        )))
+                    } else if $(this.[<$stream:lower>].is_done())&&+ {
+                        Poll::Ready(None)
+                    } else {
+                        Poll::Pending
                     }
                 }
             }
