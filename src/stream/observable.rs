@@ -25,4 +25,10 @@ impl<T> Stream for Observable<T> {
     fn poll_next(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.as_mut().inner.borrow_mut().pop()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.inner.borrow().len();
+
+        (size, Some(size))
+    }
 }

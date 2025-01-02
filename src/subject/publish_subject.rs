@@ -54,6 +54,12 @@ impl<T> PublishSubject<T> {
     }
 }
 
+impl<T> Drop for PublishSubject<T> {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
+
 #[cfg(test)]
 mod test {
     use futures::{executor::block_on, StreamExt};

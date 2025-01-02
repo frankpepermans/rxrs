@@ -84,3 +84,9 @@ impl<T> ReplaySubject<T> {
         }
     }
 }
+
+impl<T> Drop for ReplaySubject<T> {
+    fn drop(&mut self) {
+        self.close();
+    }
+}

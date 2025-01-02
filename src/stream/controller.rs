@@ -14,6 +14,10 @@ impl<T> Controller<T> {
         }
     }
 
+    pub(crate) fn len(&self) -> usize {
+        self.buffer.len()
+    }
+
     pub(crate) fn push(&mut self, value: T) {
         self.buffer.push_back(value);
     }

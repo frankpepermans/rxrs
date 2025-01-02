@@ -61,3 +61,9 @@ impl<T> BehaviorSubject<T> {
         }
     }
 }
+
+impl<T> Drop for BehaviorSubject<T> {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
