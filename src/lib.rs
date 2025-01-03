@@ -8,7 +8,7 @@ pub use crate::{
     stream::observable::*,
     stream::rx::combine_latest::*,
     stream::rx::zip::*,
-    stream_ext::*,
+    stream_ext::RxExt,
     subject::{
         Subject,
         {behavior_subject::*, publish_subject::*, replay_subject::*},
@@ -20,7 +20,7 @@ pub mod prelude {
         stream::event::*,
         stream::rx::combine_latest::*,
         stream::rx::zip::*,
-        stream_ext::*,
+        stream_ext::RxExt,
         subject::{
             Subject,
             {behavior_subject::*, publish_subject::*, replay_subject::*},

@@ -13,8 +13,8 @@ pub mod share;
 pub mod start_with;
 pub mod switch_map;
 
-impl<T: ?Sized> RxStreamExt for T where T: Stream {}
-pub trait RxStreamExt: Stream {
+impl<T: ?Sized> RxExt for T where T: Stream {}
+pub trait RxExt: Stream {
     fn into_ref_stream(self) -> IntoRefStream<Self>
     where
         Self: Sized,
