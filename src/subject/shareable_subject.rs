@@ -53,7 +53,6 @@ impl<S: Stream + Unpin> ShareableSubject<S> {
 
                 for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
                     sub.borrow_mut().push(Event(rc.clone()));
-                    println!("ev!");
                 }
             }
             Poll::Ready(None) => {
