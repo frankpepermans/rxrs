@@ -1,6 +1,7 @@
 use core::pin::Pin;
 use core::task::Context;
 use core::task::Poll;
+use futures::stream::Fuse;
 use futures::stream::FusedStream;
 use futures::Stream;
 use futures::StreamExt;
@@ -19,14 +20,14 @@ pin_project! {
     pub struct Shared<S: Stream, Sub: Subject<Item = S::Item>> {
         inner: Rc<RefCell<ShareableSubject<S, Sub>>>,
         #[pin]
-        stream: Observable<S::Item>,
+        stream: Fuse<Observable<S::Item>>,
     }
 }
 
 impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Shared<S, Sub> {
     pub(crate) fn new(stream: S, subject: Sub) -> Self {
         let mut subject = ShareableSubject::new(stream, subject);
-        let stream = subject.subscribe();
+        let stream = subject.subscribe().fuse();
 
         Self {
             inner: Rc::new(RefCell::new(subject)),
@@ -37,7 +38,7 @@ impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Shared<S, Sub> {
 
 impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Clone for Shared<S, Sub> {
     fn clone(&self) -> Self {
-        let stream = self.inner.borrow_mut().subscribe();
+        let stream = self.inner.borrow_mut().subscribe().fuse();
 
         Self {
             inner: Rc::clone(&self.inner),

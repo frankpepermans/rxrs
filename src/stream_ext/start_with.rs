@@ -3,7 +3,10 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{stream::FusedStream, Stream};
+use futures::{
+    stream::{Fuse, FusedStream},
+    Stream, StreamExt,
+};
 use pin_project_lite::pin_project;
 
 pin_project! {
@@ -11,7 +14,7 @@ pin_project! {
     #[must_use = "streams do nothing unless polled"]
     pub struct StartWith<S: Stream> {
         #[pin]
-        stream: S,
+        stream: Fuse<S>,
         value: Option<S::Item>,
     }
 }
@@ -19,7 +22,7 @@ pin_project! {
 impl<S: Stream> StartWith<S> {
     pub(crate) fn new(stream: S, value: S::Item) -> Self {
         Self {
-            stream,
+            stream: stream.fuse(),
             value: Some(value),
         }
     }

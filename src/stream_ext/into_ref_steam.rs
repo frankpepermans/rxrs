@@ -3,7 +3,10 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{stream::FusedStream, Stream};
+use futures::{
+    stream::{Fuse, FusedStream},
+    Stream, StreamExt,
+};
 use pin_project_lite::pin_project;
 
 use crate::{Event, EventStream};
@@ -13,14 +16,14 @@ pin_project! {
     #[must_use = "streams do nothing unless polled"]
     pub struct IntoRefStream<S: Stream> {
         #[pin]
-        stream: EventStream<S::Item, S>,
+        stream: Fuse<EventStream<S::Item, S>>,
     }
 }
 
 impl<S: Stream> IntoRefStream<S> {
     pub(crate) fn new(stream: S) -> Self {
         Self {
-            stream: EventStream::new(stream),
+            stream: EventStream::new(stream).fuse(),
         }
     }
 }

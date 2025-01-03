@@ -1,5 +1,6 @@
 use futures::Stream;
 use into_ref_steam::IntoRefStream;
+use pairwise::Pairwise;
 use race::Race;
 use share::Shared;
 use start_with::StartWith;
@@ -8,6 +9,7 @@ use switch_map::SwitchMap;
 use crate::{BehaviorSubject, Event, PublishSubject, ReplaySubject};
 
 pub mod into_ref_steam;
+pub mod pairwise;
 pub mod race;
 pub mod share;
 pub mod start_with;
@@ -62,6 +64,13 @@ pub trait RxExt: Stream {
         Self: Sized,
     {
         assert_stream::<<F::Output as Stream>::Item, _>(SwitchMap::new(self, f))
+    }
+
+    fn pairwise(self) -> Pairwise<Self>
+    where
+        Self: Sized,
+    {
+        assert_stream::<(Event<Self::Item>, Event<Self::Item>), _>(Pairwise::new(self))
     }
 }
 
