@@ -33,7 +33,14 @@ impl<S: Stream, St: Stream, F: FnMut(S::Item) -> St> SwitchMap<S, St, F> {
 
 impl<S: Stream, St: Stream, F: FnMut(S::Item) -> St> FusedStream for SwitchMap<S, St, F> {
     fn is_terminated(&self) -> bool {
-        self.stream.is_terminated()
+        if self.stream.is_terminated() {
+            self.switch_stream
+                .as_ref()
+                .map(|it| it.is_terminated())
+                .unwrap_or(false)
+        } else {
+            false
+        }
     }
 }
 
@@ -68,8 +75,13 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (a, b) = self.stream.size_hint();
-
-        (a + 1, b.map(|it| it + 1))
+        if self.stream.is_terminated() {
+            self.switch_stream
+                .as_ref()
+                .map(|it| it.size_hint())
+                .unwrap_or((0, None))
+        } else {
+            (0, None)
+        }
     }
 }
