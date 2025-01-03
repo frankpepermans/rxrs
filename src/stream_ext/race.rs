@@ -80,10 +80,13 @@ impl<S1: Stream<Item = T>, S2: Stream<Item = T>, T> Stream for Race<S1, S2, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
+        let (lower_left, upper_left) = self.left.size_hint();
+        let (lower_right, upper_right) = self.right.size_hint();
+
         match &self.winner {
-            Winner::Left => self.left.size_hint(),
-            Winner::Right => self.right.size_hint(),
-            Winner::Undecided => (0, None),
+            Winner::Left => (lower_left, upper_left),
+            Winner::Right => (lower_right, upper_right),
+            Winner::Undecided => (lower_left.min(lower_right), None),
         }
     }
 }

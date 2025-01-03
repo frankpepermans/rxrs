@@ -33,8 +33,14 @@ impl<T> Stream for Observable<T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.inner.borrow().len();
+        let inner = self.inner.borrow();
+        let lower_bound = inner.len();
+        let upper_bound = if inner.is_done {
+            Some(lower_bound)
+        } else {
+            None
+        };
 
-        (size, Some(size))
+        (lower_bound, upper_bound)
     }
 }

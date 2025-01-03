@@ -1,6 +1,7 @@
 use futures::stream::{Fuse, FusedStream, Stream, StreamExt};
 use paste::paste;
 use pin_project_lite::pin_project;
+use std::cmp::Ordering;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -64,7 +65,7 @@ macro_rules! zip {
 
                 paste! {
                     $(
-                        if !this.[<$stream:lower>].is_done() && this.[<$type:lower>].is_none() {
+                        if !this.[<$stream:lower>].is_terminated() && this.[<$type:lower>].is_none() {
                             *this.[<$type:lower>] = poll_next(this.[<$stream:lower>].as_mut(), cx);
                         };
                     )+
@@ -75,12 +76,33 @@ macro_rules! zip {
                                 this.[<$type:lower>].take().unwrap()
                             ),+
                         )))
-                    } else if $(this.[<$stream:lower>].is_done())||+ {
+                    } else if $(this.[<$stream:lower>].is_terminated())||+ {
                         Poll::Ready(None)
                     } else {
                         Poll::Pending
                     }
                 }
+            }
+
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                paste! {
+                    let size_hint_all = [$(self.[<$stream:lower>].size_hint()),+];
+                }
+
+                (
+                    size_hint_all
+                        .iter()
+                        .min_by(|a, b| a.0.cmp(&b.0))
+                        .unwrap().0,
+                    size_hint_all
+                        .into_iter()
+                        .min_by(|a, b| match (a.1, b.1) {
+                            (None, None) => Ordering::Equal,
+                            (None, Some(_)) => Ordering::Greater,
+                            (Some(_), None) => Ordering::Less,
+                            (Some(a), Some(b)) => a.cmp(&b),
+                    }).unwrap().1
+                )
             }
         }
     };

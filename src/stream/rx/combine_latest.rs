@@ -1,6 +1,7 @@
 use futures::stream::{Fuse, FusedStream, Stream, StreamExt};
 use paste::paste;
 use pin_project_lite::pin_project;
+use std::cmp::Ordering;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -65,7 +66,7 @@ macro_rules! combine_latest {
                 paste! {
                     let mut did_update_value = false;
                     $(
-                        if !this.[<$stream:lower>].is_done() {
+                        if !this.[<$stream:lower>].is_terminated() {
                             let next = poll_next(this.[<$stream:lower>].as_mut(), cx);
 
                             if !did_update_value {
@@ -85,12 +86,38 @@ macro_rules! combine_latest {
                                 this.[<$type:lower>].as_ref().unwrap().to_owned()
                             ),+
                         )))
-                    } else if $(this.[<$stream:lower>].is_done())&&+ {
+                    } else if $(this.[<$stream:lower>].is_terminated())&&+ {
                         Poll::Ready(None)
                     } else {
                         Poll::Pending
                     }
                 }
+            }
+
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                paste! {
+                    let size_hint_all = [$(self.[<$stream:lower>].size_hint()),+];
+                    let upper = if $(self.[<$stream:lower>].is_terminated())&&+ {
+                        size_hint_all
+                            .into_iter()
+                            .min_by(|a, b| match (a.1, b.1) {
+                                (None, None) => Ordering::Equal,
+                                (None, Some(_)) => Ordering::Greater,
+                                (Some(_), None) => Ordering::Less,
+                                (Some(a), Some(b)) => a.cmp(&b),
+                        }).unwrap().1
+                    } else {
+                        None
+                    };
+                }
+
+                (
+                    size_hint_all
+                        .iter()
+                        .max_by(|a, b| a.0.cmp(&b.0))
+                        .unwrap().0,
+                    upper
+                )
             }
         }
     };

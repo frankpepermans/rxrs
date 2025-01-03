@@ -81,7 +81,9 @@ where
                 .map(|it| it.size_hint())
                 .unwrap_or((0, None))
         } else {
-            (0, None)
+            let (lower, _) = self.stream.size_hint();
+
+            (lower, None)
         }
     }
 }
