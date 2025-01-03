@@ -3,6 +3,7 @@ use into_ref_steam::IntoRefStream;
 use race::Race;
 use share::Shared;
 use start_with::StartWith;
+use switch_map::SwitchMap;
 
 use crate::{BehaviorSubject, Event, PublishSubject, ReplaySubject};
 
@@ -10,6 +11,7 @@ pub mod into_ref_steam;
 pub mod race;
 pub mod share;
 pub mod start_with;
+pub mod switch_map;
 
 impl<T: ?Sized> RxStreamExt for T where T: Stream {}
 pub trait RxStreamExt: Stream {
@@ -53,6 +55,13 @@ pub trait RxStreamExt: Stream {
         Self: Sized + Unpin,
     {
         assert_stream::<Event<Self::Item>, _>(Shared::new(self, ReplaySubject::new()))
+    }
+
+    fn switch_map<S: Stream, F: FnMut(Self::Item) -> S>(self, f: F) -> SwitchMap<Self, S, F>
+    where
+        Self: Sized + Unpin,
+    {
+        assert_stream::<<F::Output as Stream>::Item, _>(SwitchMap::new(self, f))
     }
 }
 
