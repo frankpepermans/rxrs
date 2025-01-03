@@ -5,7 +5,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::Stream;
+use futures::{stream::FusedStream, Stream};
 
 use crate::{Controller, Event};
 
@@ -16,6 +16,12 @@ pub struct Observable<T> {
 impl<T> Observable<T> {
     pub(crate) fn new(inner: Rc<RefCell<Controller<Event<T>>>>) -> Self {
         Self { inner }
+    }
+}
+
+impl<T> FusedStream for Observable<T> {
+    fn is_terminated(&self) -> bool {
+        self.inner.borrow().is_done
     }
 }
 

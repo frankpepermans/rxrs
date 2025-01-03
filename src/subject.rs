@@ -1,6 +1,7 @@
 pub mod behavior_subject;
 pub mod publish_subject;
 pub mod replay_subject;
+pub mod shareable_subject;
 
 use crate::Observable;
 

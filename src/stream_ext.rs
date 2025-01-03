@@ -1,12 +1,14 @@
 use futures::Stream;
 use into_ref_steam::IntoRefStream;
 use race::Race;
+use share::Shared;
 use start_with::StartWith;
 
 use crate::Event;
 
 pub mod into_ref_steam;
 pub mod race;
+pub mod share;
 pub mod start_with;
 
 impl<T: ?Sized> RxStreamExt for T where T: Stream {}
@@ -30,6 +32,13 @@ pub trait RxStreamExt: Stream {
         Self: Sized,
     {
         assert_stream::<Self::Item, _>(StartWith::new(self, value))
+    }
+
+    fn share(self) -> Shared<Self>
+    where
+        Self: Sized + Unpin,
+    {
+        assert_stream::<Event<Self::Item>, _>(Shared::new(self))
     }
 }
 
