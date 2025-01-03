@@ -13,7 +13,7 @@ use pin_project_lite::pin_project;
 use crate::{Controller, Event, Observable};
 
 pin_project! {
-    pub struct ShareableSubject<S: Stream> {
+    pub(crate) struct ShareableSubject<S: Stream> {
         #[pin]
         stream: Option<Fuse<S>>,
         subscriptions: Vec<Weak<RefCell<Controller<Event<S::Item>>>>>,
@@ -21,7 +21,7 @@ pin_project! {
 }
 
 impl<S: Stream + Unpin> ShareableSubject<S> {
-    pub fn new(stream: S) -> Self {
+    pub(crate) fn new(stream: S) -> Self {
         Self {
             stream: Some(stream.fuse()),
             subscriptions: Vec::new(),
