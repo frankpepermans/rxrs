@@ -3,10 +3,7 @@ pub mod publish_subject;
 pub mod replay_subject;
 pub mod shareable_subject;
 
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{Controller, Event, Observable};
 
