@@ -9,7 +9,10 @@ pub use crate::{
     stream::rx::combine_latest::*,
     stream::rx::zip::*,
     stream_ext::*,
-    subject::{behavior_subject::*, publish_subject::*, replay_subject::*},
+    subject::{
+        Subject,
+        {behavior_subject::*, publish_subject::*, replay_subject::*},
+    },
 };
 
 pub mod prelude {
@@ -18,6 +21,9 @@ pub mod prelude {
         stream::rx::combine_latest::*,
         stream::rx::zip::*,
         stream_ext::*,
-        subject::{behavior_subject::*, publish_subject::*, replay_subject::*},
+        subject::{
+            Subject,
+            {behavior_subject::*, publish_subject::*, replay_subject::*},
+        },
     };
 }
