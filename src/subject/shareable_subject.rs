@@ -14,14 +14,14 @@ use crate::{Controller, Event, Observable};
 type Subscription<T> = Weak<RefCell<Controller<Event<T>>>>;
 
 pub(crate) struct ShareableSubject<S: Stream> {
-    stream: Option<Fuse<S>>,
+    stream: Fuse<S>,
     subscriptions: Vec<Subscription<S::Item>>,
 }
 
 impl<S: Stream + Unpin> ShareableSubject<S> {
     pub(crate) fn new(stream: S) -> Self {
         Self {
-            stream: Some(stream.fuse()),
+            stream: stream.fuse(),
             subscriptions: Vec::new(),
         }
     }
@@ -29,11 +29,7 @@ impl<S: Stream + Unpin> ShareableSubject<S> {
     pub(crate) fn subscribe(&mut self) -> Observable<S::Item> {
         let mut stream = Controller::new();
 
-        stream.is_done = self
-            .stream
-            .as_ref()
-            .map(|it| it.is_terminated())
-            .unwrap_or(false);
+        stream.is_done = self.stream.is_terminated();
 
         let stream = Rc::new(RefCell::new(stream));
 
@@ -43,9 +39,7 @@ impl<S: Stream + Unpin> ShareableSubject<S> {
     }
 
     pub(crate) fn poll_next(&mut self, cx: &mut Context<'_>) {
-        let stream = self.stream.as_mut().unwrap();
-
-        match stream.poll_next_unpin(cx) {
+        match self.stream.poll_next_unpin(cx) {
             Poll::Ready(Some(value)) => {
                 let rc = Rc::new(value);
 
