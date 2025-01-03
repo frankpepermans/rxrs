@@ -59,7 +59,7 @@ pub trait RxStreamExt: Stream {
 
     fn switch_map<S: Stream, F: FnMut(Self::Item) -> S>(self, f: F) -> SwitchMap<Self, S, F>
     where
-        Self: Sized + Unpin,
+        Self: Sized,
     {
         assert_stream::<<F::Output as Stream>::Item, _>(SwitchMap::new(self, f))
     }
