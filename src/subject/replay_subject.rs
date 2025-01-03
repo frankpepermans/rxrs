@@ -8,6 +8,8 @@ use crate::{Controller, Event, Observable};
 
 use super::Subject;
 
+type Subscription<T> = Weak<RefCell<Controller<Event<T>>>>;
+
 pub(crate) enum ReplayStrategy {
     BufferSize(usize),
     Unbounded,
@@ -15,7 +17,7 @@ pub(crate) enum ReplayStrategy {
 
 pub struct ReplaySubject<T> {
     replay_strategy: ReplayStrategy,
-    subscriptions: Vec<Weak<RefCell<Controller<Event<T>>>>>,
+    subscriptions: Vec<Subscription<T>>,
     is_closed: bool,
     buffer: VecDeque<Rc<T>>,
 }

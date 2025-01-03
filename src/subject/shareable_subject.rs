@@ -8,16 +8,14 @@ use futures::{
     stream::{Fuse, FusedStream},
     Stream, StreamExt,
 };
-use pin_project_lite::pin_project;
 
 use crate::{Controller, Event, Observable};
 
-pin_project! {
-    pub(crate) struct ShareableSubject<S: Stream> {
-        #[pin]
-        stream: Option<Fuse<S>>,
-        subscriptions: Vec<Weak<RefCell<Controller<Event<S::Item>>>>>,
-    }
+type Subscription<T> = Weak<RefCell<Controller<Event<T>>>>;
+
+pub(crate) struct ShareableSubject<S: Stream> {
+    stream: Option<Fuse<S>>,
+    subscriptions: Vec<Subscription<S::Item>>,
 }
 
 impl<S: Stream + Unpin> ShareableSubject<S> {

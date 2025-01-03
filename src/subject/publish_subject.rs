@@ -7,8 +7,10 @@ use crate::{Controller, Event, Observable};
 
 use super::Subject;
 
+type Subscription<T> = Weak<RefCell<Controller<Event<T>>>>;
+
 pub struct PublishSubject<T> {
-    subscriptions: Vec<Weak<RefCell<Controller<Event<T>>>>>,
+    subscriptions: Vec<Subscription<T>>,
     is_closed: bool,
 }
 
