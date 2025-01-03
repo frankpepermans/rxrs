@@ -4,7 +4,7 @@ use race::Race;
 use share::Shared;
 use start_with::StartWith;
 
-use crate::Event;
+use crate::{subject::Subject, BehaviorSubject, Event, PublishSubject, ReplaySubject};
 
 pub mod into_ref_steam;
 pub mod race;
@@ -34,11 +34,25 @@ pub trait RxStreamExt: Stream {
         assert_stream::<Self::Item, _>(StartWith::new(self, value))
     }
 
-    fn share(self) -> Shared<Self>
+    fn share(self) -> Shared<Self, PublishSubject<Self::Item>>
     where
         Self: Sized + Unpin,
     {
-        assert_stream::<Event<Self::Item>, _>(Shared::new(self))
+        assert_stream::<Event<Self::Item>, _>(Shared::new(self, PublishSubject::new()))
+    }
+
+    fn share_behavior(self) -> Shared<Self, BehaviorSubject<Self::Item>>
+    where
+        Self: Sized + Unpin,
+    {
+        assert_stream::<Event<Self::Item>, _>(Shared::new(self, BehaviorSubject::new()))
+    }
+
+    fn share_replay(self) -> Shared<Self, ReplaySubject<Self::Item>>
+    where
+        Self: Sized + Unpin,
+    {
+        assert_stream::<Event<Self::Item>, _>(Shared::new(self, ReplaySubject::new()))
     }
 }
 

@@ -51,6 +51,12 @@ impl<T> Subject for BehaviorSubject<T> {
             sub.borrow_mut().push(Event(Rc::clone(&rc)));
         }
     }
+
+    fn for_each_subscription<F: FnMut(&mut super::Subscription<Self::Item>)>(&mut self, mut f: F) {
+        for mut sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
+            f(&mut sub);
+        }
+    }
 }
 
 #[allow(clippy::new_without_default)]

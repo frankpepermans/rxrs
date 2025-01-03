@@ -1,41 +1,29 @@
 use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
+    rc::Rc,
     task::{Context, Poll},
 };
 
-use futures::{
-    stream::{Fuse, FusedStream},
-    Stream, StreamExt,
-};
+use futures::{stream::Fuse, Stream, StreamExt};
 
-use crate::{Controller, Event, Observable};
+use crate::{Event, Observable};
 
-type Subscription<T> = Weak<RefCell<Controller<Event<T>>>>;
+use super::Subject;
 
-pub(crate) struct ShareableSubject<S: Stream> {
+pub(crate) struct ShareableSubject<S: Stream, Sub: Subject<Item = S::Item>> {
     stream: Fuse<S>,
-    subscriptions: Vec<Subscription<S::Item>>,
+    subject: Sub,
 }
 
-impl<S: Stream + Unpin> ShareableSubject<S> {
-    pub(crate) fn new(stream: S) -> Self {
+impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> ShareableSubject<S, Sub> {
+    pub(crate) fn new(stream: S, subject: Sub) -> Self {
         Self {
             stream: stream.fuse(),
-            subscriptions: Vec::new(),
+            subject,
         }
     }
 
     pub(crate) fn subscribe(&mut self) -> Observable<S::Item> {
-        let mut stream = Controller::new();
-
-        stream.is_done = self.stream.is_terminated();
-
-        let stream = Rc::new(RefCell::new(stream));
-
-        self.subscriptions.push(Rc::downgrade(&stream));
-
-        Observable::new(stream)
+        self.subject.subscribe()
     }
 
     pub(crate) fn poll_next(&mut self, cx: &mut Context<'_>) {
@@ -43,14 +31,12 @@ impl<S: Stream + Unpin> ShareableSubject<S> {
             Poll::Ready(Some(value)) => {
                 let rc = Rc::new(value);
 
-                for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-                    sub.borrow_mut().push(Event(rc.clone()));
-                }
+                self.subject
+                    .for_each_subscription(|sub| sub.borrow_mut().push(Event(rc.clone())));
             }
             Poll::Ready(None) => {
-                for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-                    sub.borrow_mut().is_done = true;
-                }
+                self.subject
+                    .for_each_subscription(|sub| sub.borrow_mut().is_done = true);
             }
             Poll::Pending => {}
         }

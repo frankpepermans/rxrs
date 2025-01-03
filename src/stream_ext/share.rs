@@ -9,22 +9,23 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::subject::shareable_subject::ShareableSubject;
+use crate::subject::Subject;
 use crate::Event;
 use crate::Observable;
 
 pin_project! {
     /// Stream for the [`share`](RxStreamExt::share) method.
     #[must_use = "streams do nothing unless polled"]
-    pub struct Shared<S: Stream> {
-        inner: Rc<RefCell<ShareableSubject<S>>>,
+    pub struct Shared<S: Stream, Sub: Subject<Item = S::Item>> {
+        inner: Rc<RefCell<ShareableSubject<S, Sub>>>,
         #[pin]
         stream: Observable<S::Item>,
     }
 }
 
-impl<S: Stream + Unpin> Shared<S> {
-    pub(crate) fn new(stream: S) -> Self {
-        let mut subject = ShareableSubject::new(stream);
+impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Shared<S, Sub> {
+    pub(crate) fn new(stream: S, subject: Sub) -> Self {
+        let mut subject = ShareableSubject::new(stream, subject);
         let stream = subject.subscribe();
 
         Self {
@@ -34,7 +35,7 @@ impl<S: Stream + Unpin> Shared<S> {
     }
 }
 
-impl<S: Stream + Unpin> Clone for Shared<S> {
+impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Clone for Shared<S, Sub> {
     fn clone(&self) -> Self {
         let stream = self.inner.borrow_mut().subscribe();
 
@@ -45,7 +46,7 @@ impl<S: Stream + Unpin> Clone for Shared<S> {
     }
 }
 
-impl<S: Stream + Unpin> Stream for Shared<S> {
+impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Stream for Shared<S, Sub> {
     type Item = Event<S::Item>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -58,7 +59,7 @@ impl<S: Stream + Unpin> Stream for Shared<S> {
     }
 }
 
-impl<S: Stream + Unpin> FusedStream for Shared<S>
+impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> FusedStream for Shared<S, Sub>
 where
     S::Item: Clone,
 {
