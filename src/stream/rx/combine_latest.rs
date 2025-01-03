@@ -100,7 +100,7 @@ macro_rules! combine_latest {
                     let upper = if $(self.[<$stream:lower>].is_terminated())&&+ {
                         size_hint_all
                             .into_iter()
-                            .min_by(|a, b| match (a.1, b.1) {
+                            .max_by(|a, b| match (a.1, b.1) {
                                 (None, None) => Ordering::Equal,
                                 (None, Some(_)) => Ordering::Greater,
                                 (Some(_), None) => Ordering::Less,
