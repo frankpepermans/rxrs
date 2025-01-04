@@ -64,13 +64,15 @@ impl<S1: Stream<Item = T>, S2: Stream<Item = T>, T> Stream for Race<S1, S2, T> {
                 let left = this.left.poll_next(cx);
                 let right = this.right.poll_next(cx);
 
+                println!("left: {}, right: {}", left.is_ready(), right.is_ready());
+
                 if left.is_ready() {
                     *this.winner = Winner::Left;
-
+                    println!("left");
                     left
                 } else if right.is_ready() {
                     *this.winner = Winner::Right;
-
+                    println!("right");
                     right
                 } else {
                     Poll::Pending
@@ -88,5 +90,36 @@ impl<S1: Stream<Item = T>, S2: Stream<Item = T>, T> Stream for Race<S1, S2, T> {
             Winner::Right => (lower_right, upper_right),
             Winner::Undecided => (lower_left.min(lower_right), None),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::task::Poll;
+
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::RxExt;
+
+    #[test]
+    fn smoke() {
+        let mut phase = 0usize;
+        let fast_stream = stream::iter(["fast"]);
+        let slow_stream = stream::poll_fn(move |_| {
+            phase += 1;
+
+            match phase {
+                1 => Poll::Pending,
+                2 => Poll::Ready(Some("slow")),
+                3 => Poll::Ready(None),
+                _ => unreachable!(),
+            }
+        });
+
+        block_on(async {
+            let all_events = slow_stream.race(fast_stream).collect::<Vec<_>>().await;
+
+            assert_eq!(all_events, ["fast"]);
+        });
     }
 }

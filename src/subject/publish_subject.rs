@@ -85,7 +85,7 @@ mod test {
         subject.close();
 
         block_on(async {
-            let res = obs.map(|it| *it.as_inner_ref()).collect::<Vec<i32>>().await;
+            let res = obs.map(|it| *it.borrow_value()).collect::<Vec<i32>>().await;
 
             assert_eq!(res, [1, 2, 3]);
         });
@@ -103,7 +103,7 @@ mod test {
         let obs = subject.subscribe();
 
         block_on(async {
-            let res = obs.map(|it| *it.as_inner_ref()).collect::<Vec<i32>>().await;
+            let res = obs.map(|it| *it.borrow_value()).collect::<Vec<i32>>().await;
 
             assert_eq!(res, []);
         });

@@ -73,3 +73,25 @@ where
         (lower, b.map(|it| if it > 0 { it - 1 } else { 0 }))
     }
 }
+
+#[cfg(test)]
+mod test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::RxExt;
+
+    #[test]
+    fn smoke() {
+        let stream = stream::iter(0..=5);
+
+        block_on(async {
+            let all_events = stream
+                .pairwise()
+                .map(|(prev, next)| (*prev, *next))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(all_events, [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
+        });
+    }
+}

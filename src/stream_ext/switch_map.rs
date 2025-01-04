@@ -87,3 +87,24 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::RxExt;
+
+    #[test]
+    fn smoke() {
+        let stream = stream::iter(0usize..=3usize);
+
+        block_on(async {
+            let all_events = stream
+                .switch_map(|i| stream::iter([i.pow(2), i.pow(3), i.pow(4)]))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(all_events, [0, 1, 4, 9, 27, 81]);
+        });
+    }
+}

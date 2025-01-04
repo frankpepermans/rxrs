@@ -1,4 +1,5 @@
 use std::{
+    ops::Deref,
     pin::Pin,
     rc::Rc,
     task::{Context, Poll},
@@ -12,12 +13,26 @@ use crate::Controller;
 pub struct Event<T>(pub(crate) Rc<T>);
 
 impl<T> Event<T> {
-    pub fn as_inner_ref(&self) -> &T {
+    pub fn borrow_value(&self) -> &T {
         &self.0
     }
 
     pub fn try_unwrap(self) -> Result<T, Rc<T>> {
         Rc::try_unwrap(self.0)
+    }
+}
+
+impl<T: Clone> Event<T> {
+    pub fn unwrap(self) -> T {
+        Rc::unwrap_or_clone(self.0)
+    }
+}
+
+impl<T> Deref for Event<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.borrow_value()
     }
 }
 
@@ -38,10 +53,6 @@ impl<T, S: Stream<Item = T>> EventStream<T, S> {
             stream: Box::pin(stream),
             controller: Controller::new(),
         }
-    }
-
-    pub(crate) fn is_done(&self) -> bool {
-        self.controller.is_done
     }
 }
 
