@@ -42,6 +42,17 @@ impl<T> Clone for Event<T> {
     }
 }
 
+impl<T: PartialEq> PartialEq for Event<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.borrow_value() == other.borrow_value()
+    }
+}
+
+impl<T> From<T> for Event<T> {
+    fn from(value: T) -> Self {
+        Event(value.into())
+    }
+}
 pub struct EventStream<T, S: Stream<Item = T>> {
     stream: Pin<Box<S>>,
     controller: Controller<Event<T>>,

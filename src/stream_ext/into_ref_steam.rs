@@ -51,3 +51,21 @@ where
         self.stream.size_hint()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::RxExt;
+
+    #[test]
+    fn smoke() {
+        let stream = stream::iter(1usize..=3usize);
+
+        block_on(async {
+            let all_events = stream.into_ref_stream().collect::<Vec<_>>().await;
+
+            assert_eq!(all_events, [1.into(), 2.into(), 3.into()]);
+        });
+    }
+}
