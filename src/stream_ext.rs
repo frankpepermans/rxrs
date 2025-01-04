@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use debounce::Debounce;
 use futures::Stream;
 use into_ref_steam::IntoRefStream;
 use pairwise::Pairwise;
@@ -8,6 +11,7 @@ use switch_map::SwitchMap;
 
 use crate::{BehaviorSubject, Event, PublishSubject, ReplaySubject};
 
+pub mod debounce;
 pub mod into_ref_steam;
 pub mod pairwise;
 pub mod race;
@@ -71,6 +75,13 @@ pub trait RxExt: Stream {
         Self: Sized,
     {
         assert_stream::<(Event<Self::Item>, Event<Self::Item>), _>(Pairwise::new(self))
+    }
+
+    fn debounce(self, duration: Duration) -> Debounce<Self>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Self::Item, _>(Debounce::new(self, duration))
     }
 }
 
