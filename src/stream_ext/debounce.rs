@@ -1,13 +1,16 @@
 use std::{
+    future::Future,
     pin::Pin,
     task::{Context, Poll},
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use futures::{
+    future::{select, Either, FusedFuture},
     stream::{Fuse, FusedStream},
-    Stream, StreamExt,
+    FutureExt, Stream, StreamExt,
 };
+use futures_timer::Delay;
 use pin_project_lite::pin_project;
 
 pin_project! {
@@ -17,8 +20,9 @@ pin_project! {
         #[pin]
         stream: Fuse<S>,
         duration: Duration,
-        last_emission: Option<SystemTime>,
-        last_event: Option<S::Item>,
+        #[pin]
+        current_interval: Option<Delay>,
+        candidate_event: Option<S::Item>,
     }
 }
 
@@ -27,8 +31,8 @@ impl<S: Stream> Debounce<S> {
         Self {
             stream: stream.fuse(),
             duration,
-            last_emission: None,
-            last_event: None,
+            current_interval: None,
+            candidate_event: None,
         }
     }
 }
@@ -42,44 +46,53 @@ where
     }
 }
 
-impl<S> Stream for Debounce<S>
-where
-    S: Stream,
-{
+impl<S: Stream> Stream for Debounce<S> {
     type Item = S::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        while let Poll::Ready(item) = this.stream.as_mut().poll_next(cx) {
-            match item {
-                Some(event) => {
-                    let mut next = None;
-                    let now = SystemTime::now();
+        if let Some(interval) = this.current_interval.as_mut().as_pin_mut() {
+            let mut switch = select(interval, this.stream.next());
 
-                    if let Some(last) = this.last_emission.replace(now) {
-                        if now.duration_since(last).unwrap() >= *this.duration {
-                            next = this.last_event.take();
+            match switch.poll_unpin(cx) {
+                Poll::Ready(it) => match it {
+                    Either::Left((_, other)) => {
+                        if other.is_terminated() {
+                            this.current_interval.set(None);
+                            return Poll::Ready(this.candidate_event.take());
                         }
                     }
-
-                    this.last_event.replace(event);
-
-                    if let Some(next) = next {
-                        return Poll::Ready(Some(next));
-                    }
-                }
-                None => return Poll::Ready(this.last_event.take()),
+                    Either::Right((it, other)) => match it {
+                        Some(item) => match other.poll(cx) {
+                            Poll::Ready(_) => {
+                                this.current_interval.set(None);
+                                return Poll::Ready(this.candidate_event.take());
+                            }
+                            Poll::Pending => {
+                                this.current_interval.set(Some(Delay::new(*this.duration)));
+                                *this.candidate_event = Some(item);
+                            }
+                        },
+                        None => return Poll::Ready(this.candidate_event.take()),
+                    },
+                },
+                Poll::Pending => return Poll::Pending,
             }
-        }
+        } else {
+            match this.stream.poll_next(cx) {
+                Poll::Ready(Some(item)) => {
+                    this.current_interval.set(Some(Delay::new(*this.duration)));
+                    *this.candidate_event = Some(item);
+                }
+                Poll::Ready(None) => return Poll::Ready(this.candidate_event.take()),
+                Poll::Pending => return Poll::Pending,
+            };
+        };
+
+        cx.waker().wake_by_ref();
 
         Poll::Pending
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let (a, b) = self.stream.size_hint();
-
-        (a + 1, b.map(|it| it + 1))
     }
 }
 
