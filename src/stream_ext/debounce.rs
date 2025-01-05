@@ -105,9 +105,12 @@ impl<S: Stream> Stream for Debounce<S> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (_, upper) = self.stream.size_hint();
+        let (lower, upper) = self.stream.size_hint();
+        // we know for sure that the final event (if any) will always emit,
+        // any other events depend on a time interval and must be discarded.
+        let lower = if lower > 0 { 1 } else { 0 };
 
-        (0, upper)
+        (lower, upper)
     }
 }
 
