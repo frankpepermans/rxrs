@@ -85,43 +85,6 @@ pub trait RxExt: Stream {
     }
 }
 
-#[macro_export]
-macro_rules! delegate_access_inner {
-    ($field:ident, $inner:ty, ($($ind:tt)*)) => {
-        /// Acquires a reference to the underlying sink or stream that this combinator is
-        /// pulling from.
-        pub fn get_ref(&self) -> &$inner {
-            (&self.$field) $($ind get_ref())*
-        }
-
-        /// Acquires a mutable reference to the underlying sink or stream that this
-        /// combinator is pulling from.
-        ///
-        /// Note that care must be taken to avoid tampering with the state of the
-        /// sink or stream which may otherwise confuse this combinator.
-        pub fn get_mut(&mut self) -> &mut $inner {
-            (&mut self.$field) $($ind get_mut())*
-        }
-
-        /// Acquires a pinned mutable reference to the underlying sink or stream that this
-        /// combinator is pulling from.
-        ///
-        /// Note that care must be taken to avoid tampering with the state of the
-        /// sink or stream which may otherwise confuse this combinator.
-        pub fn get_pin_mut(self: core::pin::Pin<&mut Self>) -> core::pin::Pin<&mut $inner> {
-            self.project().$field $($ind get_pin_mut())*
-        }
-
-        /// Consumes this combinator, returning the underlying sink or stream.
-        ///
-        /// Note that this may discard intermediate state of this combinator, so
-        /// care should be taken to avoid losing resources when this is called.
-        pub fn into_inner(self) -> $inner {
-            self.$field $($ind into_inner())*
-        }
-    }
-}
-
 pub(crate) fn assert_stream<T, S>(stream: S) -> S
 where
     S: Stream<Item = T>,
