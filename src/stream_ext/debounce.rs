@@ -103,6 +103,12 @@ impl<S: Stream> Stream for Debounce<S> {
             }
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_, upper) = self.stream.size_hint();
+
+        (0, upper)
+    }
 }
 
 #[cfg(test)]
