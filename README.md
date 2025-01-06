@@ -25,7 +25,7 @@ let yet_another_obs = obs.clone();
 
 block_on(async {
     // Since Subjects allow for multiple subscribers, events are
-    // wrappen in Event types, which internally manage a Rc to the actual event.
+    // wrapped in Event types, which internally manage an Rc to the actual event.
     // Here, we just borrow the underlying value and deref it.
     let res = obs.map(|it| *it.borrow_value()).collect::<Vec<i32>>().await;
 

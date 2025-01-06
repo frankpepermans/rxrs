@@ -60,10 +60,7 @@ impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Stream for Shared<S, Sub> 
     }
 }
 
-impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> FusedStream for Shared<S, Sub>
-where
-    S::Item: Clone,
-{
+impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> FusedStream for Shared<S, Sub> {
     fn is_terminated(&self) -> bool {
         self.stream.is_terminated()
     }
