@@ -83,6 +83,10 @@ impl<T> ReplaySubject<T> {
         }
     }
 
+    pub fn buffer_len(&self) -> usize {
+        self.buffer.len()
+    }
+
     pub fn buffer_size(size: usize) -> Self {
         Self {
             replay_strategy: ReplayStrategy::BufferSize(size),

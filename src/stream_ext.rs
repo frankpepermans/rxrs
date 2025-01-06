@@ -1,13 +1,14 @@
-use std::{collections::VecDeque, future::Future};
+use std::{collections::VecDeque, future::Future, vec::IntoIter};
 
 use buffer::Buffer;
 use debounce::Debounce;
-use futures::Stream;
+use futures::{stream::Iter, Stream};
 use pairwise::Pairwise;
 use race::Race;
 use share::Shared;
 use start_with::StartWith;
 use switch_map::SwitchMap;
+use window::Window;
 
 use crate::{BehaviorSubject, Event, PublishSubject, ReplaySubject};
 
@@ -18,6 +19,7 @@ pub mod race;
 pub mod share;
 pub mod start_with;
 pub mod switch_map;
+pub mod window;
 
 impl<T: ?Sized> RxExt for T where T: Stream {}
 pub trait RxExt: Stream {
@@ -85,6 +87,16 @@ pub trait RxExt: Stream {
         Self: Sized,
     {
         assert_stream::<VecDeque<Self::Item>, _>(Buffer::new(self, f))
+    }
+
+    fn window<Fut: Future<Output = bool>, F: Fn(&Self::Item, usize) -> Fut>(
+        self,
+        f: F,
+    ) -> Window<Self, Fut, F>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Iter<IntoIter<Self::Item>>, _>(Window::new(self, f))
     }
 }
 
