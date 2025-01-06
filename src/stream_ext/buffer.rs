@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -20,7 +21,7 @@ pin_project! {
         f: F,
         #[pin]
         current_interval: Option<Fut>,
-        buffer: Option<Vec<S::Item>>,
+        buffer: Option<VecDeque<S::Item>>,
     }
 }
 
@@ -50,7 +51,7 @@ where
     F: for<'a> Fn(&'a S::Item, usize) -> Fut,
     Fut: Future<Output = bool>,
 {
-    type Item = Vec<S::Item>;
+    type Item = VecDeque<S::Item>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
@@ -77,9 +78,9 @@ where
                             ));
 
                             if let Some(it) = this.buffer.as_mut() {
-                                it.push(item);
+                                it.push_back(item);
                             } else {
-                                this.buffer.replace(vec![item]);
+                                this.buffer.replace(VecDeque::from_iter([item]));
                             }
 
                             cx.waker().wake_by_ref();
@@ -100,9 +101,9 @@ where
                     )));
 
                     if let Some(it) = this.buffer.as_mut() {
-                        it.push(item);
+                        it.push_back(item);
                     } else {
-                        this.buffer.replace(vec![item]);
+                        this.buffer.replace(VecDeque::from_iter([item]));
                     }
 
                     cx.waker().wake_by_ref();

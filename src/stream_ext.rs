@@ -1,4 +1,4 @@
-use std::future::Future;
+use std::{collections::VecDeque, future::Future};
 
 use buffer::Buffer;
 use debounce::Debounce;
@@ -93,7 +93,7 @@ pub trait RxExt: Stream {
     where
         Self: Sized,
     {
-        assert_stream::<Vec<Self::Item>, _>(Buffer::new(self, f))
+        assert_stream::<VecDeque<Self::Item>, _>(Buffer::new(self, f))
     }
 }
 
