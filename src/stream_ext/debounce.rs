@@ -2,7 +2,6 @@ use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
-    time::Duration,
 };
 
 use futures::{
@@ -10,73 +9,63 @@ use futures::{
     stream::{Fuse, FusedStream},
     FutureExt, Stream, StreamExt,
 };
-use futures_time::future::FutureExt as OtherFutureExt;
 use pin_project_lite::pin_project;
 
 pin_project! {
     /// Stream for the [`debounce`](RxStreamExt::debounce) method.
     #[must_use = "streams do nothing unless polled"]
-    pub struct Debounce<S: Stream> {
+    pub struct Debounce<S: Stream, Fut, F> {
         #[pin]
         stream: Fuse<S>,
-        duration: Duration,
+        f: F,
         #[pin]
-        current_interval: Option<Pin<Box<dyn Future<Output = bool>>>>,
+        current_interval: Option<Fut>,
         candidate_event: Option<S::Item>,
     }
 }
 
-impl<S: Stream> Debounce<S> {
-    pub(crate) fn new(stream: S, duration: Duration) -> Self {
+impl<S: Stream, Fut, F> Debounce<S, Fut, F> {
+    pub(crate) fn new(stream: S, f: F) -> Self {
         Self {
             stream: stream.fuse(),
-            duration,
+            f,
             current_interval: None,
             candidate_event: None,
         }
     }
 }
 
-impl<S> FusedStream for Debounce<S>
+impl<S: Stream, Fut, F> FusedStream for Debounce<S, Fut, F>
 where
-    S: FusedStream,
+    F: for<'a> Fn(&'a S::Item) -> Fut,
+    Fut: Future,
 {
     fn is_terminated(&self) -> bool {
         self.stream.is_terminated()
     }
 }
 
-impl<S: Stream> Stream for Debounce<S> {
+impl<S: Stream, Fut, F> Stream for Debounce<S, Fut, F>
+where
+    F: for<'a> Fn(&'a S::Item) -> Fut,
+    Fut: Future,
+{
     type Item = S::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
-        let duration = this.duration.as_millis().try_into().unwrap();
-
-        fn create_interval(
-            existing: bool,
-            duration: u64,
-        ) -> Option<Pin<Box<dyn Future<Output = bool>>>> {
-            if existing {
-                let deadline = futures_time::time::Duration::from_millis(duration);
-
-                Some(Box::pin(async { true }.delay(deadline)))
-            } else {
-                None
-            }
-        }
 
         if let Some(interval) = this.current_interval.as_mut().as_pin_mut() {
             match select(interval, this.stream.next()).poll_unpin(cx) {
                 Poll::Ready(it) => match it {
                     Either::Left(_) => {
-                        *this.current_interval = create_interval(false, duration);
+                        this.current_interval.set(None);
 
                         Poll::Ready(this.candidate_event.take())
                     }
                     Either::Right((it, mut interval)) => match it {
                         Some(item) => {
-                            interval.set(create_interval(true, duration).unwrap());
+                            interval.set((this.f)(&item));
                             *this.candidate_event = Some(item);
 
                             cx.waker().wake_by_ref();
@@ -91,7 +80,7 @@ impl<S: Stream> Stream for Debounce<S> {
         } else {
             match this.stream.poll_next(cx) {
                 Poll::Ready(Some(item)) => {
-                    *this.current_interval = create_interval(true, duration);
+                    this.current_interval.set(Some((this.f)(&item)));
                     *this.candidate_event = Some(item);
 
                     cx.waker().wake_by_ref();
@@ -127,7 +116,14 @@ mod test {
 
         block_on(async {
             let all_events = stream
-                .debounce(std::time::Duration::from_millis(100))
+                .debounce(|_| {
+                    async {}.delay(futures_time::time::Duration::from_millis(
+                        std::time::Duration::from_millis(100)
+                            .as_millis()
+                            .try_into()
+                            .unwrap(),
+                    ))
+                })
                 .collect::<Vec<_>>()
                 .await;
 

@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::future::Future;
 
 use debounce::Debounce;
 use futures::Stream;
@@ -77,11 +77,11 @@ pub trait RxExt: Stream {
         assert_stream::<(Event<Self::Item>, Event<Self::Item>), _>(Pairwise::new(self))
     }
 
-    fn debounce(self, duration: Duration) -> Debounce<Self>
+    fn debounce<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> Debounce<Self, Fut, F>
     where
         Self: Sized,
     {
-        assert_stream::<Self::Item, _>(Debounce::new(self, duration))
+        assert_stream::<Self::Item, _>(Debounce::new(self, f))
     }
 }
 
