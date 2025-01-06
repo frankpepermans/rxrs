@@ -3,7 +3,6 @@ use std::{collections::VecDeque, future::Future};
 use buffer::Buffer;
 use debounce::Debounce;
 use futures::Stream;
-use into_ref_steam::IntoRefStream;
 use pairwise::Pairwise;
 use race::Race;
 use share::Shared;
@@ -14,7 +13,6 @@ use crate::{BehaviorSubject, Event, PublishSubject, ReplaySubject};
 
 pub mod buffer;
 pub mod debounce;
-pub mod into_ref_steam;
 pub mod pairwise;
 pub mod race;
 pub mod share;
@@ -23,13 +21,6 @@ pub mod switch_map;
 
 impl<T: ?Sized> RxExt for T where T: Stream {}
 pub trait RxExt: Stream {
-    fn into_ref_stream(self) -> IntoRefStream<Self>
-    where
-        Self: Sized,
-    {
-        assert_stream::<Event<Self::Item>, _>(IntoRefStream::new(self))
-    }
-
     fn race<S: Stream<Item = Self::Item>>(self, other: S) -> Race<Self, S, Self::Item>
     where
         Self: Sized,
