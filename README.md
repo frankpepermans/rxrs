@@ -1,29 +1,34 @@
-RxRs is a lightweight Rx implementation which build upon futures::Stream.
+RxRs is a lightweight Rx implementation which build upon `futures::Stream`.
 
-It aims to provide Subjects which allow multiple subscribing Streams. Events are ref-counted in the downstream(s).
+It aims to provide `Subject`s which allow multiple subscribing `Stream`s. Events are ref-counted in the downstream(s).
 The subjects are:
-- PublishSubject
-- BehaviorSubject
-- ReplaySubject
+- `PublishSubject`
+- `BehaviorSubject`
+- `ReplaySubject`
 
 Then there's combinators
-- CombineLatest2..CombineLatest9
-- Zip2..Zip9
+- `CombineLatest2`..`CombineLatest9`
+- `Zip2`..`Zip9`
 
-It also exposes RxExt, which like StreamExt provides typical Rx transformers.
+It also exposes `RxExt`, which like `StreamExt` provides typical Rx transformers.
 The ops so far are: 
-- buffer
-- debounce
-- distinct
-- distinct_until_changed
-- pairwise
-- race
-- share
-- share_behavior
-- share_replay
-- start_with
-- switch_map
-- window
+- `buffer`
+- `debounce`
+- `dematerialize`
+- `distinct`
+- `distinct_until_changed`
+- `materialize`
+- `pairwise`
+- `race`
+- `share`
+- `share_behavior`
+- `share_replay`
+- `start_with`
+- `switch_map`
+- `window`
+
+Note that a lot of other Rx operators are already part of the `futures::StreamExt` trait. This crate will only ever contain Rx operators that are missing from `StreamExt`.
+Do use both `StreamExt` and `RxExt` to access all.
 
 *Subject example*
 

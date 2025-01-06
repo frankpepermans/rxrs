@@ -55,9 +55,10 @@ impl<S: Stream> Stream for StartWith<S> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.value.as_ref().map(|it| it.len()).unwrap_or_default();
         let (a, b) = self.stream.size_hint();
 
-        (a + 1, b.map(|it| it + 1))
+        (a + len, b.map(|it| it + len))
     }
 }
 

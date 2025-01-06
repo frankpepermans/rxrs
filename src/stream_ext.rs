@@ -2,9 +2,11 @@ use std::{collections::VecDeque, future::Future, hash::Hash, vec::IntoIter};
 
 use buffer::Buffer;
 use debounce::Debounce;
+use dematerialize::Dematerialize;
 use distinct::Distinct;
 use distinct_until_changed::DistinctUntilChanged;
 use futures::{stream::Iter, Stream};
+use materialize::Materialize;
 use pairwise::Pairwise;
 use race::Race;
 use share::Shared;
@@ -12,12 +14,14 @@ use start_with::StartWith;
 use switch_map::SwitchMap;
 use window::Window;
 
-use crate::{BehaviorSubject, Event, PublishSubject, ReplaySubject};
+use crate::{BehaviorSubject, Event, Notification, PublishSubject, ReplaySubject};
 
 pub mod buffer;
 pub mod debounce;
+pub mod dematerialize;
 pub mod distinct;
 pub mod distinct_until_changed;
+pub mod materialize;
 pub mod pairwise;
 pub mod race;
 pub mod share;
@@ -117,6 +121,20 @@ pub trait RxExt: Stream {
         Self::Item: Hash,
     {
         assert_stream::<Self::Item, _>(DistinctUntilChanged::new(self))
+    }
+
+    fn materialize(self) -> Materialize<Self>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Notification<Self::Item>, _>(Materialize::new(self))
+    }
+
+    fn dematerialize<T>(self) -> Dematerialize<Self, T>
+    where
+        Self: Stream<Item = Notification<T>> + Sized,
+    {
+        assert_stream::<T, _>(Dematerialize::new(self))
     }
 }
 
