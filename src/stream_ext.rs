@@ -1,5 +1,6 @@
 use std::future::Future;
 
+use buffer::Buffer;
 use debounce::Debounce;
 use futures::Stream;
 use into_ref_steam::IntoRefStream;
@@ -11,6 +12,7 @@ use switch_map::SwitchMap;
 
 use crate::{BehaviorSubject, Event, PublishSubject, ReplaySubject};
 
+pub mod buffer;
 pub mod debounce;
 pub mod into_ref_steam;
 pub mod pairwise;
@@ -82,6 +84,16 @@ pub trait RxExt: Stream {
         Self: Sized,
     {
         assert_stream::<Self::Item, _>(Debounce::new(self, f))
+    }
+
+    fn buffer<Fut: Future<Output = bool>, F: Fn(&Self::Item, usize) -> Fut>(
+        self,
+        f: F,
+    ) -> Buffer<Self, Fut, F>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Vec<Self::Item>, _>(Buffer::new(self, f))
     }
 }
 
