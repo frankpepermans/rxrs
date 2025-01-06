@@ -106,7 +106,7 @@ pub trait RxExt: Stream {
     fn distinct(self) -> Distinct<Self>
     where
         Self: Sized,
-        Self::Item: Eq + Hash,
+        Self::Item: Hash,
     {
         assert_stream::<Self::Item, _>(Distinct::new(self))
     }
@@ -114,7 +114,7 @@ pub trait RxExt: Stream {
     fn distinct_until_changed(self) -> DistinctUntilChanged<Self>
     where
         Self: Sized,
-        Self::Item: Eq + Hash,
+        Self::Item: Hash,
     {
         assert_stream::<Self::Item, _>(DistinctUntilChanged::new(self))
     }

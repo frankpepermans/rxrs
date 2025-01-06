@@ -34,7 +34,7 @@ impl<S: Stream> DistinctUntilChanged<S> {
 impl<S> FusedStream for DistinctUntilChanged<S>
 where
     S: FusedStream,
-    S::Item: Eq + Hash,
+    S::Item: Hash,
 {
     fn is_terminated(&self) -> bool {
         self.stream.is_terminated()
@@ -44,7 +44,7 @@ where
 impl<S> Stream for DistinctUntilChanged<S>
 where
     S: Stream,
-    S::Item: Eq + Hash,
+    S::Item: Hash,
 {
     type Item = S::Item;
 
