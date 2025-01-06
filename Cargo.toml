@@ -5,8 +5,8 @@ edition = "2021"
 description = "Rx implementations for the futures crate"
 authors = ["Frank Pepermans <frank@igindo.com>"]
 repository = "https://github.com/frankpepermans/rxrs"
-license-file = "./LICENCE"
-readme = "./README.md"
+license-file = "LICENCE"
+readme = "README.md"
 keywords = ["Observable", "Subject", "rx", "futures"]
 
 [dependencies]
