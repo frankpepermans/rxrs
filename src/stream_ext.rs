@@ -1,7 +1,9 @@
-use std::{collections::VecDeque, future::Future, vec::IntoIter};
+use std::{collections::VecDeque, future::Future, hash::Hash, vec::IntoIter};
 
 use buffer::Buffer;
 use debounce::Debounce;
+use distinct::Distinct;
+use distinct_until_changed::DistinctUntilChanged;
 use futures::{stream::Iter, Stream};
 use pairwise::Pairwise;
 use race::Race;
@@ -14,6 +16,8 @@ use crate::{BehaviorSubject, Event, PublishSubject, ReplaySubject};
 
 pub mod buffer;
 pub mod debounce;
+pub mod distinct;
+pub mod distinct_until_changed;
 pub mod pairwise;
 pub mod race;
 pub mod share;
@@ -69,7 +73,7 @@ pub trait RxExt: Stream {
     where
         Self: Sized,
     {
-        assert_stream::<(Event<Self::Item>, Event<Self::Item>), _>(Pairwise::new(self))
+        assert_stream::<(Self::Item, Event<Self::Item>), _>(Pairwise::new(self))
     }
 
     fn debounce<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> Debounce<Self, Fut, F>
@@ -97,6 +101,22 @@ pub trait RxExt: Stream {
         Self: Sized,
     {
         assert_stream::<Iter<IntoIter<Self::Item>>, _>(Window::new(self, f))
+    }
+
+    fn distinct(self) -> Distinct<Self>
+    where
+        Self: Sized,
+        Self::Item: Eq + Hash,
+    {
+        assert_stream::<Self::Item, _>(Distinct::new(self))
+    }
+
+    fn distinct_until_changed(self) -> DistinctUntilChanged<Self>
+    where
+        Self: Sized,
+        Self::Item: Eq + Hash,
+    {
+        assert_stream::<Self::Item, _>(DistinctUntilChanged::new(self))
     }
 }
 

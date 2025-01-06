@@ -1,6 +1,7 @@
 use std::{
+    collections::HashSet,
+    hash::{DefaultHasher, Hash, Hasher},
     pin::Pin,
-    rc::Rc,
     task::{Context, Poll},
 };
 
@@ -10,55 +11,57 @@ use futures::{
 };
 use pin_project_lite::pin_project;
 
-use crate::Event;
-
 pin_project! {
     /// Stream for the [`pairwise`](RxStreamExt::pairwise) method.
     #[must_use = "streams do nothing unless polled"]
-    pub struct Pairwise<S: Stream> {
+    pub struct Distinct<S: Stream>
+     {
         #[pin]
         stream: Fuse<S>,
-        previous: Option<Rc<S::Item>>,
+        #[pin]
+        seen: HashSet<u64>,
     }
 }
 
-impl<S: Stream> Pairwise<S> {
+impl<S: Stream> Distinct<S> {
     pub(crate) fn new(stream: S) -> Self {
         Self {
             stream: stream.fuse(),
-            previous: None,
+            seen: HashSet::new(),
         }
     }
 }
 
-impl<S> FusedStream for Pairwise<S>
+impl<S> FusedStream for Distinct<S>
 where
     S: FusedStream,
+    S::Item: Eq + Hash,
 {
     fn is_terminated(&self) -> bool {
         self.stream.is_terminated()
     }
 }
 
-impl<S> Stream for Pairwise<S>
+impl<S> Stream for Distinct<S>
 where
     S: Stream,
+    S::Item: Eq + Hash,
 {
-    type Item = (S::Item, Event<S::Item>);
+    type Item = S::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        match this.stream.as_mut().poll_next(cx) {
+        match this.stream.poll_next(cx) {
             Poll::Ready(Some(event)) => {
-                let next = Rc::new(event);
+                let mut hasher = DefaultHasher::new();
 
-                if let Some(prev) = this.previous.replace(Rc::clone(&next)) {
-                    if let Ok(prev) = Rc::try_unwrap(prev) {
-                        Poll::Ready(Some((prev, Event(next))))
-                    } else {
-                        unreachable!()
-                    }
+                event.hash(&mut hasher);
+
+                let should_emit = this.seen.as_mut().get_mut().insert(hasher.finish());
+
+                if should_emit {
+                    Poll::Ready(Some(event))
                 } else {
                     cx.waker().wake_by_ref();
 
@@ -71,10 +74,10 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (a, b) = self.stream.size_hint();
-        let lower = if a > 0 { a - 1 } else { 0 };
+        let (lower, upper) = self.stream.size_hint();
+        let lower = if lower > 0 { 1 } else { 0 };
 
-        (lower, b.map(|it| if it > 0 { it - 1 } else { 0 }))
+        (lower, upper)
     }
 }
 
@@ -86,16 +89,12 @@ mod test {
 
     #[test]
     fn smoke() {
-        let stream = stream::iter(0..=5);
+        let stream = stream::iter([1, 1, 2, 1, 3, 2, 4, 5]);
 
         block_on(async {
-            let all_events = stream
-                .pairwise()
-                .map(|(prev, next)| (prev, *next))
-                .collect::<Vec<_>>()
-                .await;
+            let all_events = stream.distinct().collect::<Vec<_>>().await;
 
-            assert_eq!(all_events, [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
+            assert_eq!(all_events, [1, 2, 3, 4, 5]);
         });
     }
 }

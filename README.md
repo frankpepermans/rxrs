@@ -1,11 +1,29 @@
 RxRs is a lightweight Rx implementation which build upon futures::Stream.
 
-It aims to provide Subjects (PublishSubject, BehaviorSubject, ReplaySubject) which allow multiple subscribing Streams. Events are ref-counted in the downstream(s).
+It aims to provide Subjects which allow multiple subscribing Streams. Events are ref-counted in the downstream(s).
+The subjects are:
+- PublishSubject
+- BehaviorSubject
+- ReplaySubject
 
-Then there's combinators, like CombineLatest and Zip.
+Then there's combinators
+- CombineLatest2..CombineLatest9
+- Zip2..Zip9
 
 It also exposes RxExt, which like StreamExt provides typical Rx transformers.
-The ops so far are: buffer, debounce, pairwise, race, share, start_with, switch_map, window.
+The ops so far are: 
+- buffer
+- debounce
+- distinct
+- distinct_until_changed
+- pairwise
+- race
+- share
+- share_behavior
+- share_replay
+- start_with
+- switch_map
+- window
 
 *Subject example*
 
@@ -52,6 +70,7 @@ block_on(async {
 // ops are accessible via the RxExt trait and work on futures::Stream
 let stream = stream::iter(0..=10)
     .start_with([-1, -2]) // precede the emission with event from an Iter
+    .distinct_until_changed() // avoid repeating the same exact event in immediate sequence
     .buffer(|_, count| async move { count == 3 }) // buffer every 3 events emitted
     .debounce(|buffered_items| async { /* use a delay */ })
     .pairwise() // previous and next events side-by-side
