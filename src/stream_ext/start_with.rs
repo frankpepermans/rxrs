@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -15,42 +16,42 @@ pin_project! {
     pub struct StartWith<S: Stream> {
         #[pin]
         stream: Fuse<S>,
-        value: Option<S::Item>,
+        value: Option<VecDeque<S::Item>>,
     }
 }
 
 impl<S: Stream> StartWith<S> {
-    pub(crate) fn new(stream: S, value: S::Item) -> Self {
+    pub(crate) fn new<I: IntoIterator<Item = S::Item>>(stream: S, value: I) -> Self {
+        let items = VecDeque::from_iter(value);
+
         Self {
             stream: stream.fuse(),
-            value: Some(value),
+            value: Some(items),
         }
     }
 }
 
-impl<S> FusedStream for StartWith<S>
-where
-    S: FusedStream,
-{
+impl<S: FusedStream> FusedStream for StartWith<S> {
     fn is_terminated(&self) -> bool {
         self.stream.is_terminated()
     }
 }
 
-impl<S> Stream for StartWith<S>
-where
-    S: Stream,
-{
+impl<S: Stream> Stream for StartWith<S> {
     type Item = S::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        if let Some(value) = this.value.take() {
-            Poll::Ready(Some(value))
-        } else {
-            this.stream.as_mut().poll_next(cx)
+        if let Some(value) = this.value.as_mut() {
+            if let Some(event) = value.pop_front() {
+                return Poll::Ready(Some(event));
+            } else {
+                *this.value = None;
+            }
         }
+
+        this.stream.as_mut().poll_next(cx)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -71,7 +72,7 @@ mod test {
         let stream = stream::iter(1..=5);
 
         block_on(async {
-            let all_events = stream.start_with(0).collect::<Vec<_>>().await;
+            let all_events = stream.start_with([0]).collect::<Vec<_>>().await;
 
             assert_eq!(all_events, [0, 1, 2, 3, 4, 5]);
         });

@@ -30,11 +30,11 @@ pub trait RxExt: Stream {
         assert_stream::<Self::Item, _>(Race::new(self, other))
     }
 
-    fn start_with(self, value: Self::Item) -> StartWith<Self>
+    fn start_with<I: IntoIterator<Item = Self::Item>>(self, iter: I) -> StartWith<Self>
     where
         Self: Sized,
     {
-        assert_stream::<Self::Item, _>(StartWith::new(self, value))
+        assert_stream::<Self::Item, _>(StartWith::new(self, iter))
     }
 
     fn share(self) -> Shared<Self, PublishSubject<Self::Item>>

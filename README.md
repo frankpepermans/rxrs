@@ -20,8 +20,6 @@ subject.close();
 let obs = subject.subscribe();
 // You can subscribe multiple times
 let another_obs = subject.subscribe();
-// Or just clone
-let yet_another_obs = obs.clone();
 
 block_on(async {
     // Since Subjects allow for multiple subscribers, events are
@@ -53,6 +51,7 @@ block_on(async {
 ```rust
 // ops are accessible via the RxExt trait and work on futures::Stream
 let stream = stream::iter(0..=10)
+    .start_with([-1, -2]) // precede the emission with event from an Iter
     .buffer(|_, count| async move { count == 3 }) // buffer every 3 events emitted
     .debounce(|buffered_items| async { /* use a delay */ })
     .pairwise() // previous and next events side-by-side
