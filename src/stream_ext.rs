@@ -47,7 +47,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::{Notification, RxExt};
     ///
     /// let stream = stream::iter(0..=3);
@@ -76,7 +76,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::{Notification, RxExt};
     ///
     /// let stream = stream::iter(4..=6);
@@ -103,7 +103,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::{Notification, RxExt};
     ///
     /// let stream = stream::iter(0..=3);
@@ -133,7 +133,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{future::join, stream, StreamExt};
+    /// use futures::{stream::{StreamExt, self}, future::join};
     /// use futures_rx::{Notification, RxExt};
     ///
     /// let stream = stream::iter(0..=3);
@@ -167,7 +167,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{future::join, stream, StreamExt};
+    /// use futures::{stream::{StreamExt, self}, future::join};
     /// use futures_rx::{Notification, RxExt};
     ///
     /// let stream = stream::iter(0..=3);
@@ -211,7 +211,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{future::join, stream, StreamExt};
+    /// use futures::{stream::{StreamExt, self}, future::join};
     /// use futures_rx::{Notification, RxExt};
     ///
     /// let stream = stream::iter(0..=3);
@@ -250,7 +250,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::{Notification, RxExt};
     ///
     /// let stream = stream::iter(0..=3);
@@ -282,7 +282,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::{Notification, RxExt};
     ///
     /// let stream = stream::iter(0..=3);
@@ -320,7 +320,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream.debounce(|_| async move { /* return delayed over time */ });
@@ -355,7 +355,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream.throttle(|_| async move { /* return delayed over time */ });
@@ -388,7 +388,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter(0..9);
@@ -425,7 +425,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter(0..9);
@@ -456,7 +456,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter([1, 2, 1, 3, 2, 2, 1, 4]);
@@ -485,7 +485,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter([1, 1, 1, 2, 2, 2, 3, 1, 1]);
@@ -514,7 +514,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::{Notification, RxExt};
     ///
     /// let stream = stream::iter(0..=3);
@@ -552,7 +552,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter(0..=3);
@@ -579,7 +579,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter(0..=3);
@@ -607,7 +607,7 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::stream::{stream, StreamExt};
+    /// use futures::stream::{self, StreamExt};
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter(0..=3);
