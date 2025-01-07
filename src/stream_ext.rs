@@ -16,7 +16,7 @@ use window::Window;
 
 use crate::{BehaviorSubject, CombineLatest2, Event, Notification, PublishSubject, ReplaySubject};
 
-use self::delay::Delay;
+use self::{delay::Delay, end_with::EndWith};
 
 pub mod buffer;
 pub mod debounce;
@@ -24,6 +24,7 @@ pub mod delay;
 pub mod dematerialize;
 pub mod distinct;
 pub mod distinct_until_changed;
+pub mod end_with;
 pub mod materialize;
 pub mod pairwise;
 pub mod race;
@@ -46,6 +47,13 @@ pub trait RxExt: Stream {
         Self: Sized,
     {
         assert_stream::<Self::Item, _>(StartWith::new(self, iter))
+    }
+
+    fn end_with<I: IntoIterator<Item = Self::Item>>(self, iter: I) -> EndWith<Self>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Self::Item, _>(EndWith::new(self, iter))
     }
 
     fn share(self) -> Shared<Self, PublishSubject<Self::Item>>

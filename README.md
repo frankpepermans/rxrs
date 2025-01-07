@@ -18,6 +18,7 @@ The ops so far are:
 - `dematerialize`
 - `distinct`
 - `distinct_until_changed`
+- `end_with`
 - `materialize`
 - `pairwise`
 - `race`
