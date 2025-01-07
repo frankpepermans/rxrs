@@ -53,7 +53,6 @@ pub trait RxExt: Stream {
     /// let stream = stream::iter(0..=3);
     /// let slower_stream = stream::iter(4..=6).delay(|| async { /* return delayed over time */ });
     /// let stream = stream.race(slower_stream);
-    /// let stream = stream.map(|(prev, next)| (prev, *next)); // we can deref here to i32
     ///
     /// assert_eq!(vec![0, 1, 2, 3], stream.collect::<Vec<_>>().await);
     /// # });
