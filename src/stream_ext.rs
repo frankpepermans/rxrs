@@ -14,7 +14,7 @@ use start_with::StartWith;
 use switch_map::SwitchMap;
 use window::Window;
 
-use crate::{BehaviorSubject, Event, Notification, PublishSubject, ReplaySubject};
+use crate::{BehaviorSubject, CombineLatest2, Event, Notification, PublishSubject, ReplaySubject};
 
 pub mod buffer;
 pub mod debounce;

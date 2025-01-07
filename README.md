@@ -26,6 +26,7 @@ The ops so far are:
 - `start_with`
 - `switch_map`
 - `window`
+- `with_latest_from`
 
 Note that a lot of other Rx operators are already part of the `futures::StreamExt` trait. This crate will only ever contain Rx operators that are missing from `StreamExt`.
 Do use both `StreamExt` and `RxExt` to access all.
@@ -75,6 +76,7 @@ block_on(async {
 // ops are accessible via the RxExt trait and work on futures::Stream
 let stream = stream::iter(0..=10)
     .start_with([-1, -2]) // precede the emission with event from an Iter
+    .with_latest_from(stream::iter(5..=15)) // combine latest of Self and another stream
     .distinct_until_changed() // avoid repeating the same exact event in immediate sequence
     .buffer(|_, count| async move { count == 3 }) // buffer every 3 events emitted
     .debounce(|buffered_items| async { /* use a delay */ })
