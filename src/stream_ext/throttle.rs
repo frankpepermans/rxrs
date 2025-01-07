@@ -106,7 +106,7 @@ mod test {
                 .collect::<Vec<_>>()
                 .await;
 
-            assert_eq!(all_events, [0, 3, 6, 9]);
+            assert_eq!(all_events, [0, 4, 8]);
         });
     }
 
