@@ -16,7 +16,7 @@ use window::Window;
 
 use crate::{BehaviorSubject, CombineLatest2, Event, Notification, PublishSubject, ReplaySubject};
 
-use self::{delay::Delay, end_with::EndWith};
+use self::{delay::Delay, end_with::EndWith, throttle::Throttle};
 
 pub mod buffer;
 pub mod debounce;
@@ -31,6 +31,7 @@ pub mod race;
 pub mod share;
 pub mod start_with;
 pub mod switch_map;
+pub mod throttle;
 pub mod window;
 
 impl<T: ?Sized> RxExt for T where T: Stream {}
@@ -334,6 +335,41 @@ pub trait RxExt: Stream {
         Self: Sized,
     {
         assert_stream::<Self::Item, _>(Debounce::new(self, f))
+    }
+
+    /// Creates a new interval from the closure, whenever a new event is emitted from the parent `Stream`.
+    /// This event is immediately emitted, however for as long as the interval is now open, no
+    /// subsequent events will be emitted.
+    ///
+    /// When the interval closes and the parent `Stream` emits a new event, this
+    /// process repeats.
+    ///
+    /// The provided closure is executed over all elements of this stream as
+    /// they are made available. It is executed inline with calls to
+    /// [`poll_next`](Stream::poll_next).
+    ///
+    /// Note that this function consumes the stream passed into it and returns a
+    /// wrapped version of it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # futures::executor::block_on(async {
+    /// use futures::stream::{stream, StreamExt};
+    /// use futures_rx::RxExt;
+    ///
+    /// let stream = stream.throttle(|_| async move { /* return delayed over time */ });
+    ///
+    /// assert_eq!(vec![1, 5, 9], stream.collect::<Vec<_>>().await);
+    /// # });
+    ///
+    /// #
+    /// ```
+    fn throttle<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> Throttle<Self, Fut, F>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Self::Item, _>(Throttle::new(self, f))
     }
 
     /// Creates chunks of buffered data.

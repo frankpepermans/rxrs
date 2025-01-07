@@ -106,7 +106,10 @@ where
 #[cfg(test)]
 mod test {
     use futures::{executor::block_on, stream, Stream, StreamExt};
-    use futures_time::{future::FutureExt, time::Duration};
+    use futures_time::{
+        future::{FutureExt, IntoFuture},
+        time::Duration,
+    };
 
     use crate::RxExt;
 
@@ -116,14 +119,7 @@ mod test {
 
         block_on(async {
             let all_events = stream
-                .debounce(|_| {
-                    async {}.delay(futures_time::time::Duration::from_millis(
-                        std::time::Duration::from_millis(100)
-                            .as_millis()
-                            .try_into()
-                            .unwrap(),
-                    ))
-                })
+                .debounce(|_| Duration::from_millis(150).into_future())
                 .collect::<Vec<_>>()
                 .await;
 
