@@ -1,12 +1,11 @@
 use std::{
     pin::Pin,
-    rc::Rc,
     task::{Context, Poll},
 };
 
 use futures::{stream::Fuse, Stream, StreamExt};
 
-use crate::{Event, Observable};
+use crate::Observable;
 
 use super::Subject;
 
@@ -29,16 +28,8 @@ impl<S: Stream, Sub: Subject<Item = S::Item>> ShareableSubject<S, Sub> {
 
     pub(crate) fn poll_next(&mut self, cx: &mut Context<'_>) {
         match self.stream.poll_next_unpin(cx) {
-            Poll::Ready(Some(value)) => {
-                let rc = Rc::new(value);
-
-                self.subject
-                    .for_each_subscription(|sub| sub.borrow_mut().push(Event(rc.clone())));
-            }
-            Poll::Ready(None) => {
-                self.subject
-                    .for_each_subscription(|sub| sub.borrow_mut().is_done = true);
-            }
+            Poll::Ready(Some(value)) => self.subject.next(value),
+            Poll::Ready(None) => self.subject.close(),
             Poll::Pending => {}
         }
     }
