@@ -53,7 +53,7 @@ pub trait RxExt: Stream {
     /// let stream = stream::iter(0..=3);
     /// let slower_stream = stream::iter(4..=6).delay(|| async { /* return delayed over time */ });
     /// let stream = stream.race(slower_stream);
-    /// let stream = stream.map(|(prev: i32, next: Event<i32>)| (prev, *next)); // we can deref here to i32
+    /// let stream = stream.map(|(prev, next)| (prev, *next)); // we can deref here to i32
     ///
     /// assert_eq!(vec![0, 1, 2, 3], stream.collect::<Vec<_>>().await);
     /// # });
@@ -138,8 +138,8 @@ pub trait RxExt: Stream {
     ///
     /// let stream = stream::iter(0..=3);
     /// let stream = stream.share();
-    /// let sub_stream_a = stream.clone().map(|event: Event<i32>| *event); // an event is Event here, wrapping a ref counted value
-    /// let sub_stream_b = stream.clone().map(|event: Event<i32>| *event); // which we can just deref in this case to i32
+    /// let sub_stream_a = stream.clone().map(|event| *event); // an event is Event here, wrapping a ref counted value
+    /// let sub_stream_b = stream.clone().map(|event| *event); // which we can just deref in this case to i32
     ///
     /// assert_eq!((vec![0, 1, 2, 3], vec![0, 1, 2, 3]), join(sub_stream_a.collect::<Vec<_>>(), sub_stream_b.collect::<Vec<_>>()).await);
     /// # });
@@ -175,8 +175,8 @@ pub trait RxExt: Stream {
     ///
     /// stream.clone().collect::<Vec<_>>().await; // consume all events beforehand
     ///
-    /// let sub_stream_a = stream.clone().map(|event: Event<i32>| *event); // an event is Event here, wrapping a ref counted value
-    /// let sub_stream_b = stream.clone().map(|event: Event<i32>| *event); // which we can just deref in this case to i32
+    /// let sub_stream_a = stream.clone().map(|event| *event); // an event is Event here, wrapping a ref counted value
+    /// let sub_stream_b = stream.clone().map(|event| *event); // which we can just deref in this case to i32
     ///
     /// assert_eq!(
     ///     (vec![3], vec![3]),
@@ -219,8 +219,8 @@ pub trait RxExt: Stream {
     ///
     /// stream.clone().collect::<Vec<_>>().await; // consume all events beforehand
     ///
-    /// let sub_stream_a = stream.clone().map(|event: Event<i32>| *event); // an event is Event here, wrapping a ref counted value
-    /// let sub_stream_b = stream.clone().map(|event: Event<i32>| *event); // which we can just deref in this case to i32
+    /// let sub_stream_a = stream.clone().map(|event| *event); // an event is Event here, wrapping a ref counted value
+    /// let sub_stream_b = stream.clone().map(|event| *event); // which we can just deref in this case to i32
     ///
     /// assert_eq!(
     ///     (vec![0, 1, 2, 3], vec![0, 1, 2, 3]),
@@ -287,7 +287,7 @@ pub trait RxExt: Stream {
     ///
     /// let stream = stream::iter(0..=3);
     /// let stream = stream.pairwise();
-    /// let stream = stream.map(|(prev: i32, next: Event<i32>)| (prev, *next)); // we can deref here to i32
+    /// let stream = stream.map(|(prev, next)| (prev, *next)); // we can deref here to i32
     ///
     /// assert_eq!(vec![(0, 1), (1, 2), (2, 3)], stream.collect::<Vec<_>>().await);
     /// # });
@@ -315,21 +315,6 @@ pub trait RxExt: Stream {
     ///
     /// Note that this function consumes the stream passed into it and returns a
     /// wrapped version of it.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # futures::executor::block_on(async {
-    /// use futures::stream::{self, StreamExt};
-    /// use futures_rx::RxExt;
-    ///
-    /// let stream = stream.debounce(|_| async move { /* return delayed over time */ });
-    ///
-    /// assert_eq!(vec![1, 5, 9], stream.collect::<Vec<_>>().await);
-    /// # });
-    ///
-    /// #
-    /// ```
     fn debounce<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> Debounce<Self, Fut, F>
     where
         Self: Sized,
@@ -350,21 +335,6 @@ pub trait RxExt: Stream {
     ///
     /// Note that this function consumes the stream passed into it and returns a
     /// wrapped version of it.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # futures::executor::block_on(async {
-    /// use futures::stream::{self, StreamExt};
-    /// use futures_rx::RxExt;
-    ///
-    /// let stream = stream.throttle(|_| async move { /* return delayed over time */ });
-    ///
-    /// assert_eq!(vec![1, 5, 9], stream.collect::<Vec<_>>().await);
-    /// # });
-    ///
-    /// #
-    /// ```
     fn throttle<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> Throttle<Self, Fut, F>
     where
         Self: Sized,
@@ -388,13 +358,22 @@ pub trait RxExt: Stream {
     ///
     /// ```
     /// # futures::executor::block_on(async {
+    /// use std::collections::VecDeque;
+    ///
     /// use futures::stream::{self, StreamExt};
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter(0..9);
     /// let stream = stream.buffer(|_, count| async move { count == 3 });
     ///
-    /// assert_eq!(vec![[0, 1, 2], [3, 4, 5], [6, 7, 8]], stream.collect::<Vec<_>>().await);
+    /// assert_eq!(
+    ///     vec![
+    ///         VecDeque::from_iter([0, 1, 2]),
+    ///         VecDeque::from_iter([3, 4, 5]),
+    ///         VecDeque::from_iter([6, 7, 8])
+    ///     ],
+    ///     stream.collect::<Vec<_>>().await
+    /// );
     /// # });
     ///
     /// #
@@ -489,7 +468,7 @@ pub trait RxExt: Stream {
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter([1, 1, 1, 2, 2, 2, 3, 1, 1]);
-    /// let stream = stream.distinct();
+    /// let stream = stream.distinct_until_changed();
     ///
     /// assert_eq!(vec![1, 2, 3, 1], stream.collect::<Vec<_>>().await);
     /// # });
