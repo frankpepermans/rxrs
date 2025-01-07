@@ -136,6 +136,15 @@ pub trait RxExt: Stream {
     {
         assert_stream::<T, _>(Dematerialize::new(self))
     }
+
+    fn with_latest_from<S: Stream>(self, stream: S) -> CombineLatest2<Self, S, Self::Item, S::Item>
+    where
+        Self: Sized,
+        Self::Item: ToOwned<Owned = Self::Item>,
+        S::Item: ToOwned<Owned = S::Item>,
+    {
+        assert_stream::<(Self::Item, S::Item), _>(CombineLatest2::new(self, stream))
+    }
 }
 
 pub(crate) fn assert_stream<T, S>(stream: S) -> S
