@@ -16,8 +16,11 @@ use window::Window;
 
 use crate::{BehaviorSubject, CombineLatest2, Event, Notification, PublishSubject, ReplaySubject};
 
+use self::delay::Delay;
+
 pub mod buffer;
 pub mod debounce;
+pub mod delay;
 pub mod dematerialize;
 pub mod distinct;
 pub mod distinct_until_changed;
@@ -135,6 +138,13 @@ pub trait RxExt: Stream {
         Self: Stream<Item = Notification<T>> + Sized,
     {
         assert_stream::<T, _>(Dematerialize::new(self))
+    }
+
+    fn delay<Fut: Future, F: Fn() -> Fut>(self, f: F) -> Delay<Self, Fut, F>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Self::Item, _>(Delay::new(self, f))
     }
 
     fn with_latest_from<S: Stream>(self, stream: S) -> CombineLatest2<Self, S, Self::Item, S::Item>

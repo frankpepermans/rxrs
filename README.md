@@ -14,6 +14,7 @@ It also exposes `RxExt`, which like `StreamExt` provides typical Rx transformers
 The ops so far are: 
 - `buffer`
 - `debounce`
+- `delay`
 - `dematerialize`
 - `distinct`
 - `distinct_until_changed`
