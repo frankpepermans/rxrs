@@ -561,6 +561,27 @@ pub trait RxExt: Stream {
         assert_stream::<Self::Item, _>(Delay::new(self, f))
     }
 
+    /// Acts just like a `CombineLatest2`, where every next event is a tuple pair
+    /// containing the last emitted events from both `Stream`s.
+    ///
+    /// Note that this function consumes the stream passed into it and returns a
+    /// wrapped version of it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # futures::executor::block_on(async {
+    /// use futures::stream::{stream, StreamExt};
+    /// use futures_rx::RxExt;
+    ///
+    /// let stream = stream::iter(0..=3);
+    /// let stream = stream.with_latest_from(stream::iter(0..=3));
+    ///
+    /// assert_eq!(vec![(0, 0), (1, 1), (2, 2), (3, 3)], stream.collect::<Vec<_>>().await);
+    /// # });
+    ///
+    /// #
+    /// ```
     fn with_latest_from<S: Stream>(self, stream: S) -> CombineLatest2<Self, S, Self::Item, S::Item>
     where
         Self: Sized,
