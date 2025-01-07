@@ -47,21 +47,21 @@ pub trait RxExt: Stream {
 
     fn share(self) -> Shared<Self, PublishSubject<Self::Item>>
     where
-        Self: Sized + Unpin,
+        Self: Sized,
     {
         assert_stream::<Event<Self::Item>, _>(Shared::new(self, PublishSubject::new()))
     }
 
     fn share_behavior(self) -> Shared<Self, BehaviorSubject<Self::Item>>
     where
-        Self: Sized + Unpin,
+        Self: Sized,
     {
         assert_stream::<Event<Self::Item>, _>(Shared::new(self, BehaviorSubject::new()))
     }
 
     fn share_replay(self) -> Shared<Self, ReplaySubject<Self::Item>>
     where
-        Self: Sized + Unpin,
+        Self: Sized,
     {
         assert_stream::<Event<Self::Item>, _>(Shared::new(self, ReplaySubject::new()))
     }

@@ -24,7 +24,7 @@ pin_project! {
     }
 }
 
-impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Shared<S, Sub> {
+impl<S: Stream, Sub: Subject<Item = S::Item>> Shared<S, Sub> {
     pub(crate) fn new(stream: S, subject: Sub) -> Self {
         let mut subject = ShareableSubject::new(stream, subject);
         let stream = subject.subscribe().fuse();
@@ -36,7 +36,7 @@ impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Shared<S, Sub> {
     }
 }
 
-impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Clone for Shared<S, Sub> {
+impl<S: Stream, Sub: Subject<Item = S::Item>> Clone for Shared<S, Sub> {
     fn clone(&self) -> Self {
         let stream = self.inner.borrow_mut().subscribe().fuse();
 
@@ -47,7 +47,7 @@ impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Clone for Shared<S, Sub> {
     }
 }
 
-impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Stream for Shared<S, Sub> {
+impl<S: Stream, Sub: Subject<Item = S::Item>> Stream for Shared<S, Sub> {
     type Item = Event<S::Item>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -60,7 +60,7 @@ impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> Stream for Shared<S, Sub> 
     }
 }
 
-impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> FusedStream for Shared<S, Sub> {
+impl<S: Stream, Sub: Subject<Item = S::Item>> FusedStream for Shared<S, Sub> {
     fn is_terminated(&self) -> bool {
         self.stream.is_terminated()
     }

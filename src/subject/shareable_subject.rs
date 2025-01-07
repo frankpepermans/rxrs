@@ -1,4 +1,5 @@
 use std::{
+    pin::Pin,
     rc::Rc,
     task::{Context, Poll},
 };
@@ -10,14 +11,14 @@ use crate::{Event, Observable};
 use super::Subject;
 
 pub(crate) struct ShareableSubject<S: Stream, Sub: Subject<Item = S::Item>> {
-    stream: Fuse<S>,
+    stream: Pin<Box<Fuse<S>>>,
     subject: Sub,
 }
 
-impl<S: Stream + Unpin, Sub: Subject<Item = S::Item>> ShareableSubject<S, Sub> {
+impl<S: Stream, Sub: Subject<Item = S::Item>> ShareableSubject<S, Sub> {
     pub(crate) fn new(stream: S, subject: Sub) -> Self {
         Self {
-            stream: stream.fuse(),
+            stream: Box::pin(stream.fuse()),
             subject,
         }
     }
