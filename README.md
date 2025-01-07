@@ -28,6 +28,8 @@ The ops so far are:
 - `start_with`
 - `switch_map`
 - `throttle`
+- `throttle_trailing`
+- `throttle_all`
 - `window`
 - `with_latest_from`
 

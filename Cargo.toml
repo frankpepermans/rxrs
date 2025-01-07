@@ -1,6 +1,6 @@
 [package]
 name = "futures-rx"
-version = "0.1.13"
+version = "0.1.14"
 edition = "2021"
 description = "Rx implementations for the futures crate"
 authors = ["Frank Pepermans <frank@igindo.com>"]

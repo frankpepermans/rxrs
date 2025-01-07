@@ -10,24 +10,34 @@ use futures::{
 };
 use pin_project_lite::pin_project;
 
+pub enum ThrottleConfig {
+    Leading,
+    Trailing,
+    All,
+}
+
 pin_project! {
     /// Stream for the [`debounce`](RxStreamExt::debounce) method.
     #[must_use = "streams do nothing unless polled"]
     pub struct Throttle<S: Stream, Fut, F> {
+        config: ThrottleConfig,
         #[pin]
         stream: Fuse<S>,
         f: F,
         #[pin]
         current_interval: Option<Fut>,
+        trailing: Option<S::Item>,
     }
 }
 
 impl<S: Stream, Fut, F> Throttle<S, Fut, F> {
-    pub(crate) fn new(stream: S, f: F) -> Self {
+    pub(crate) fn new(stream: S, f: F, config: ThrottleConfig) -> Self {
         Self {
+            config,
             stream: stream.fuse(),
             f,
             current_interval: None,
+            trailing: None,
         }
     }
 }
@@ -60,19 +70,29 @@ where
 
         if !is_in_interval && this.current_interval.is_some() {
             this.current_interval.set(None);
+
+            if matches!(this.config, ThrottleConfig::All | ThrottleConfig::Trailing) {
+                if let Some(trailing) = this.trailing.take() {
+                    return Poll::Ready(Some(trailing));
+                }
+            }
         }
 
         match this.stream.poll_next(cx) {
             Poll::Ready(Some(item)) => {
                 if is_in_interval {
-                    cx.waker().wake_by_ref();
-
-                    Poll::Pending
+                    this.trailing.replace(item);
                 } else {
                     this.current_interval.set(Some((this.f)(&item)));
 
-                    Poll::Ready(Some(item))
+                    if matches!(this.config, ThrottleConfig::All | ThrottleConfig::Leading) {
+                        return Poll::Ready(Some(item));
+                    }
                 }
+
+                cx.waker().wake_by_ref();
+
+                Poll::Pending
             }
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,
@@ -98,15 +118,34 @@ mod test {
 
     #[test]
     fn smoke() {
-        let stream = create_stream();
-
         block_on(async {
+            let stream = create_stream();
             let all_events = stream
                 .throttle(|_| Duration::from_millis(175).into_future())
                 .collect::<Vec<_>>()
                 .await;
 
             assert_eq!(all_events, [0, 4, 8]);
+        });
+
+        block_on(async {
+            let stream = create_stream();
+            let all_events = stream
+                .throttle_trailing(|_| Duration::from_millis(175).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(all_events, [3, 7]);
+        });
+
+        block_on(async {
+            let stream = create_stream();
+            let all_events = stream
+                .throttle_all(|_| Duration::from_millis(175).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(all_events, [0, 3, 4, 7, 8]);
         });
     }
 

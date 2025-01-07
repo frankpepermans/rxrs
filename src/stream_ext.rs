@@ -338,7 +338,26 @@ pub trait RxExt: Stream {
     where
         Self: Sized,
     {
-        assert_stream::<Self::Item, _>(Throttle::new(self, f))
+        assert_stream::<Self::Item, _>(Throttle::new(self, f, throttle::ThrottleConfig::Leading))
+    }
+
+    /// Like `throttle`, but only emitting trailing items.
+    fn throttle_trailing<Fut: Future, F: Fn(&Self::Item) -> Fut>(
+        self,
+        f: F,
+    ) -> Throttle<Self, Fut, F>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Self::Item, _>(Throttle::new(self, f, throttle::ThrottleConfig::Trailing))
+    }
+
+    /// Like `throttle`, but emitting both leading and trailing items.
+    fn throttle_all<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> Throttle<Self, Fut, F>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Self::Item, _>(Throttle::new(self, f, throttle::ThrottleConfig::All))
     }
 
     /// Creates chunks of buffered data.
