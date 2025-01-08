@@ -2,6 +2,7 @@ use std::{collections::VecDeque, future::Future, hash::Hash, vec::IntoIter};
 
 use buffer::Buffer;
 use debounce::Debounce;
+use delay_every::DelayEvery;
 use dematerialize::Dematerialize;
 use distinct::Distinct;
 use distinct_until_changed::DistinctUntilChanged;
@@ -22,6 +23,7 @@ use self::{delay::Delay, end_with::EndWith, throttle::Throttle};
 pub mod buffer;
 pub mod debounce;
 pub mod delay;
+pub mod delay_every;
 pub mod dematerialize;
 pub mod distinct;
 pub mod distinct_until_changed;
@@ -594,6 +596,33 @@ pub trait RxExt: Stream {
         Self: Sized,
     {
         assert_stream::<Self::Item, _>(Delay::new(self, f))
+    }
+
+    /// Delays every event using a time window, provided by a closure.
+    ///
+    /// Note that this function consumes the stream passed into it and returns a
+    /// wrapped version of it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # futures::executor::block_on(async {
+    /// use futures::stream::{self, StreamExt};
+    /// use futures_rx::RxExt;
+    ///
+    /// let stream = stream::iter(0..=3);
+    /// let stream = stream.delay_every(|_| async { /* return delayed over time */ });
+    ///
+    /// assert_eq!(vec![0, 1, 2, 3], stream.collect::<Vec<_>>().await);
+    /// # });
+    ///
+    /// #
+    /// ```
+    fn delay_every<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> DelayEvery<Self, Fut, F>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Self::Item, _>(DelayEvery::new(self, f))
     }
 
     /// Acts just like a `CombineLatest2`, where every next event is a tuple pair

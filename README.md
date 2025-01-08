@@ -15,6 +15,7 @@ The ops so far are:
 - `buffer`
 - `debounce`
 - `delay`
+- `delay_every`
 - `dematerialize`
 - `distinct`
 - `distinct_until_changed`
