@@ -17,7 +17,7 @@ pub enum ThrottleConfig {
 }
 
 pin_project! {
-    /// Stream for the [`debounce`](RxStreamExt::debounce) method.
+    /// Stream for the [`throttle`](RxStreamExt::throttle) method.
     #[must_use = "streams do nothing unless polled"]
     pub struct Throttle<S: Stream, Fut, F> {
         config: ThrottleConfig,

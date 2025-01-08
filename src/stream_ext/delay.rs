@@ -19,6 +19,7 @@ pin_project! {
         f: F,
         #[pin]
         interval: Option<Fut>,
+        did_delay: bool,
     }
 }
 
@@ -28,6 +29,7 @@ impl<S: Stream, Fut, F> Delay<S, Fut, F> {
             stream: stream.fuse(),
             f,
             interval: None,
+            did_delay: false,
         }
     }
 }
@@ -63,7 +65,12 @@ where
                     return Poll::Pending;
                 }
             },
-            None => this.interval.set(Some((this.f)())),
+            None => {
+                if !*this.did_delay {
+                    *this.did_delay = true;
+                    this.interval.set(Some((this.f)()))
+                }
+            }
         };
 
         this.stream.poll_next(cx)
@@ -84,7 +91,7 @@ mod test {
     use std::time::SystemTime;
 
     use futures::{executor::block_on, stream, StreamExt};
-    use futures_time::future::FutureExt;
+    use futures_time::{future::IntoFuture, time::Duration};
 
     use crate::RxExt;
 
@@ -93,14 +100,7 @@ mod test {
         block_on(async {
             let now = SystemTime::now();
             let all_events = stream::iter(0..=3)
-                .delay(|| {
-                    async {}.delay(futures_time::time::Duration::from_millis(
-                        std::time::Duration::from_millis(100)
-                            .as_millis()
-                            .try_into()
-                            .unwrap(),
-                    ))
-                })
+                .delay(|| Duration::from_millis(100).into_future())
                 .collect::<Vec<_>>()
                 .await;
 
