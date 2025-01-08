@@ -614,7 +614,7 @@ pub trait RxExt: Stream {
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter(0..=3);
-    /// let stream = stream.delay_every(|_| async { /* return delayed over time */ });
+    /// let stream = stream.delay_every(|_| async { /* return delayed over time */ }, None);
     ///
     /// assert_eq!(vec![0, 1, 2, 3], stream.collect::<Vec<_>>().await);
     /// # });
