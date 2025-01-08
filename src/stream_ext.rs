@@ -11,6 +11,7 @@ use inspect_done::InspectDone;
 use materialize::Materialize;
 use pairwise::Pairwise;
 use race::Race;
+use sample::Sample;
 use share::Shared;
 use start_with::StartWith;
 use switch_map::SwitchMap;
@@ -33,6 +34,7 @@ pub mod inspect_done;
 pub mod materialize;
 pub mod pairwise;
 pub mod race;
+pub mod sample;
 pub mod share;
 pub mod start_with;
 pub mod switch_map;
@@ -340,6 +342,8 @@ pub trait RxExt: Stream {
     ///
     /// Note that this function consumes the stream passed into it and returns a
     /// wrapped version of it.
+    ///
+    /// See also `sample`
     fn throttle<Fut: Future, F: FnMut(&Self::Item) -> Fut>(self, f: F) -> Throttle<Self, Fut, F>
     where
         Self: Sized,
@@ -681,6 +685,9 @@ pub trait RxExt: Stream {
     /// Similar to `inspect`, except that the closure provided is only ever
     /// triggered when the `Stream` is done.
     ///
+    /// Note that this function consumes the stream passed into it and returns a
+    /// wrapped version of it.
+    ///
     /// # Examples
     ///
     /// ```
@@ -704,6 +711,24 @@ pub trait RxExt: Stream {
         Self: Sized,
     {
         assert_stream::<Self::Item, _>(InspectDone::new(self, f))
+    }
+
+    /// Only emits events whenever the `sampler` emits an event.
+    /// The event emitted is then the last emitted event from the
+    /// source `Stream`.
+    ///
+    /// If the `sampler` triggers before the source `Stream` was
+    /// able to produce a new event, then no event is emitted.
+    ///
+    /// Note that this function consumes the stream passed into it and returns a
+    /// wrapped version of it.
+    ///
+    /// See also `throttle`.
+    fn sample<S: Stream>(self, sampler: S) -> Sample<Self, S>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Self::Item, _>(Sample::new(self, sampler))
     }
 }
 

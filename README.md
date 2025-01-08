@@ -24,6 +24,7 @@ The ops so far are:
 - `materialize`
 - `pairwise`
 - `race`
+- `sample`
 - `share`
 - `share_behavior`
 - `share_replay`
