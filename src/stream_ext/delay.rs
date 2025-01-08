@@ -88,7 +88,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::time::SystemTime;
+    use std::time::Instant;
 
     use futures::{executor::block_on, stream, StreamExt};
     use futures_time::{future::IntoFuture, time::Duration};
@@ -98,14 +98,14 @@ mod test {
     #[test]
     fn smoke() {
         block_on(async {
-            let now = SystemTime::now();
+            let now = Instant::now();
             let all_events = stream::iter(0..=3)
                 .delay(|| Duration::from_millis(100).into_future())
                 .collect::<Vec<_>>()
                 .await;
 
             assert_eq!(all_events, [0, 1, 2, 3]);
-            assert!(now.elapsed().unwrap().as_millis() >= 100);
+            assert!(now.elapsed().as_millis() >= 100);
         });
     }
 }

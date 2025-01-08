@@ -27,6 +27,7 @@ The ops so far are:
 - `share_replay`
 - `start_with`
 - `switch_map`
+- `timing`
 - `throttle`
 - `throttle_trailing`
 - `throttle_all`

@@ -12,6 +12,7 @@ use race::Race;
 use share::Shared;
 use start_with::StartWith;
 use switch_map::SwitchMap;
+use timing::{Timed, Timing};
 use window::Window;
 
 use crate::{BehaviorSubject, CombineLatest2, Event, Notification, PublishSubject, ReplaySubject};
@@ -32,6 +33,7 @@ pub mod share;
 pub mod start_with;
 pub mod switch_map;
 pub mod throttle;
+pub mod timing;
 pub mod window;
 
 impl<T: ?Sized> RxExt for T where T: Stream {}
@@ -622,6 +624,20 @@ pub trait RxExt: Stream {
         S::Item: ToOwned<Owned = S::Item>,
     {
         assert_stream::<(Self::Item, S::Item), _>(CombineLatest2::new(self, stream))
+    }
+
+    /// Wraps each item into a `Timed` struct.
+    /// This structs hold the actual event, as well as
+    /// a timestamp containing an `Instant` and an elapsed interval
+    /// as `Duration`, relative to the second to last emitted event.
+    ///
+    /// Note that this function consumes the stream passed into it and returns a
+    /// wrapped version of it.
+    fn timing(self) -> Timing<Self>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Timed<Self::Item>, _>(Timing::new(self))
     }
 }
 
