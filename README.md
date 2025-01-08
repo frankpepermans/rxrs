@@ -20,6 +20,7 @@ The ops so far are:
 - `distinct`
 - `distinct_until_changed`
 - `end_with`
+- `inspect_done`
 - `materialize`
 - `pairwise`
 - `race`

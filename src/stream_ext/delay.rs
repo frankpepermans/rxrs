@@ -36,7 +36,7 @@ impl<S: Stream, Fut, F> Delay<S, Fut, F> {
 
 impl<S: Stream, Fut, F> FusedStream for Delay<S, Fut, F>
 where
-    F: Fn() -> Fut,
+    F: FnMut() -> Fut,
     Fut: Future,
 {
     fn is_terminated(&self) -> bool {
@@ -46,7 +46,7 @@ where
 
 impl<S: Stream, Fut, F> Stream for Delay<S, Fut, F>
 where
-    F: Fn() -> Fut,
+    F: FnMut() -> Fut,
     Fut: Future,
 {
     type Item = S::Item;

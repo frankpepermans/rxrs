@@ -38,7 +38,7 @@ impl<S: Stream, Fut, F> Buffer<S, Fut, F> {
 
 impl<S: Stream, Fut, F> FusedStream for Buffer<S, Fut, F>
 where
-    F: for<'a> Fn(&'a S::Item, usize) -> Fut,
+    F: for<'a> FnMut(&'a S::Item, usize) -> Fut,
     Fut: Future<Output = bool>,
 {
     fn is_terminated(&self) -> bool {
@@ -48,7 +48,7 @@ where
 
 impl<S: Stream, Fut, F> Stream for Buffer<S, Fut, F>
 where
-    F: for<'a> Fn(&'a S::Item, usize) -> Fut,
+    F: for<'a> FnMut(&'a S::Item, usize) -> Fut,
     Fut: Future<Output = bool>,
 {
     type Item = VecDeque<S::Item>;

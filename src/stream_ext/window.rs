@@ -38,7 +38,7 @@ impl<S: Stream, Fut, F> Window<S, Fut, F> {
 
 impl<S: Stream, Fut, F> FusedStream for Window<S, Fut, F>
 where
-    F: for<'a> Fn(&'a S::Item, usize) -> Fut,
+    F: for<'a> FnMut(&'a S::Item, usize) -> Fut,
     Fut: Future<Output = bool>,
 {
     fn is_terminated(&self) -> bool {
@@ -48,7 +48,7 @@ where
 
 impl<S: Stream, Fut, F> Stream for Window<S, Fut, F>
 where
-    F: for<'a> Fn(&'a S::Item, usize) -> Fut,
+    F: for<'a> FnMut(&'a S::Item, usize) -> Fut,
     Fut: Future<Output = bool>,
 {
     type Item = Iter<IntoIter<S::Item>>;

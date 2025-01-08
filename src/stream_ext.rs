@@ -7,6 +7,7 @@ use dematerialize::Dematerialize;
 use distinct::Distinct;
 use distinct_until_changed::DistinctUntilChanged;
 use futures::{stream::Iter, Stream};
+use inspect_done::InspectDone;
 use materialize::Materialize;
 use pairwise::Pairwise;
 use race::Race;
@@ -28,6 +29,7 @@ pub mod dematerialize;
 pub mod distinct;
 pub mod distinct_until_changed;
 pub mod end_with;
+pub mod inspect_done;
 pub mod materialize;
 pub mod pairwise;
 pub mod race;
@@ -318,7 +320,7 @@ pub trait RxExt: Stream {
     ///
     /// Note that this function consumes the stream passed into it and returns a
     /// wrapped version of it.
-    fn debounce<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> Debounce<Self, Fut, F>
+    fn debounce<Fut: Future, F: FnMut(&Self::Item) -> Fut>(self, f: F) -> Debounce<Self, Fut, F>
     where
         Self: Sized,
     {
@@ -338,7 +340,7 @@ pub trait RxExt: Stream {
     ///
     /// Note that this function consumes the stream passed into it and returns a
     /// wrapped version of it.
-    fn throttle<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> Throttle<Self, Fut, F>
+    fn throttle<Fut: Future, F: FnMut(&Self::Item) -> Fut>(self, f: F) -> Throttle<Self, Fut, F>
     where
         Self: Sized,
     {
@@ -346,7 +348,7 @@ pub trait RxExt: Stream {
     }
 
     /// Like `throttle`, but only emitting trailing items.
-    fn throttle_trailing<Fut: Future, F: Fn(&Self::Item) -> Fut>(
+    fn throttle_trailing<Fut: Future, F: FnMut(&Self::Item) -> Fut>(
         self,
         f: F,
     ) -> Throttle<Self, Fut, F>
@@ -357,7 +359,7 @@ pub trait RxExt: Stream {
     }
 
     /// Like `throttle`, but emitting both leading and trailing items.
-    fn throttle_all<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> Throttle<Self, Fut, F>
+    fn throttle_all<Fut: Future, F: FnMut(&Self::Item) -> Fut>(self, f: F) -> Throttle<Self, Fut, F>
     where
         Self: Sized,
     {
@@ -400,7 +402,7 @@ pub trait RxExt: Stream {
     ///
     /// #
     /// ```
-    fn buffer<Fut: Future<Output = bool>, F: Fn(&Self::Item, usize) -> Fut>(
+    fn buffer<Fut: Future<Output = bool>, F: FnMut(&Self::Item, usize) -> Fut>(
         self,
         f: F,
     ) -> Buffer<Self, Fut, F>
@@ -437,7 +439,7 @@ pub trait RxExt: Stream {
     ///
     /// #
     /// ```
-    fn window<Fut: Future<Output = bool>, F: Fn(&Self::Item, usize) -> Fut>(
+    fn window<Fut: Future<Output = bool>, F: FnMut(&Self::Item, usize) -> Fut>(
         self,
         f: F,
     ) -> Window<Self, Fut, F>
@@ -591,7 +593,7 @@ pub trait RxExt: Stream {
     ///
     /// #
     /// ```
-    fn delay<Fut: Future, F: Fn() -> Fut>(self, f: F) -> Delay<Self, Fut, F>
+    fn delay<Fut: Future, F: FnMut() -> Fut>(self, f: F) -> Delay<Self, Fut, F>
     where
         Self: Sized,
     {
@@ -621,7 +623,7 @@ pub trait RxExt: Stream {
     ///
     /// #
     /// ```
-    fn delay_every<Fut: Future, F: Fn(&Self::Item) -> Fut>(
+    fn delay_every<Fut: Future, F: FnMut(&Self::Item) -> Fut>(
         self,
         f: F,
         max_buffer_size: Option<usize>,
@@ -674,6 +676,34 @@ pub trait RxExt: Stream {
         Self: Sized,
     {
         assert_stream::<Timed<Self::Item>, _>(Timing::new(self))
+    }
+
+    /// Similar to `inspect`, except that the closure provided is only ever
+    /// triggered when the `Stream` is done.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # futures::executor::block_on(async {
+    /// use futures::stream::{self, StreamExt};
+    /// use futures_rx::RxExt;
+    ///
+    /// let mut is_done = false;
+    /// stream::iter(0..=8)
+    ///     .inspect_done(|| is_done = true)
+    ///     .collect::<Vec<_>>()
+    ///     .await;
+    ///
+    /// assert!(is_done);
+    /// # });
+    ///
+    /// #
+    /// ```
+    fn inspect_done<F: FnMut()>(self, f: F) -> InspectDone<Self, F>
+    where
+        Self: Sized,
+    {
+        assert_stream::<Self::Item, _>(InspectDone::new(self, f))
     }
 }
 

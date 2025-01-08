@@ -44,7 +44,7 @@ impl<S: Stream, Fut, F> Throttle<S, Fut, F> {
 
 impl<S: Stream, Fut, F> FusedStream for Throttle<S, Fut, F>
 where
-    F: for<'a> Fn(&'a S::Item) -> Fut,
+    F: for<'a> FnMut(&'a S::Item) -> Fut,
     Fut: Future,
 {
     fn is_terminated(&self) -> bool {
@@ -54,7 +54,7 @@ where
 
 impl<S: Stream, Fut, F> Stream for Throttle<S, Fut, F>
 where
-    F: for<'a> Fn(&'a S::Item) -> Fut,
+    F: for<'a> FnMut(&'a S::Item) -> Fut,
     Fut: Future,
 {
     type Item = S::Item;
