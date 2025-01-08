@@ -22,17 +22,23 @@ pin_project! {
         delayed_event: Option<S::Item>,
         #[pin]
         current_interval: Option<Fut>,
+        max_buffer_size: Option<usize>,
     }
 }
 
 impl<S: Stream, Fut, F> DelayEvery<S, Fut, F> {
-    pub(crate) fn new(stream: S, f: F) -> Self {
+    pub(crate) fn new(stream: S, f: F, max_buffer_size: Option<usize>) -> Self {
         Self {
             stream: stream.fuse(),
             f,
-            delayed_events: VecDeque::new(),
+            delayed_events: if let Some(max_buffer_size) = &max_buffer_size {
+                VecDeque::with_capacity(*max_buffer_size)
+            } else {
+                VecDeque::new()
+            },
             delayed_event: None,
             current_interval: None,
+            max_buffer_size,
         }
     }
 }
@@ -60,6 +66,13 @@ where
 
         if let Poll::Ready(Some(event)) = this.stream.poll_next(cx) {
             did_push = true;
+
+            if let Some(max_buffer_size) = this.max_buffer_size {
+                while this.delayed_events.len() >= *max_buffer_size {
+                    this.delayed_events.pop_front();
+                }
+            }
+
             this.delayed_events.push_back(event);
         };
 
@@ -120,7 +133,7 @@ mod test {
         block_on(async {
             let now = Instant::now();
             let all_events = stream::iter(0..=3)
-                .delay_every(|_| Duration::from_millis(50).into_future())
+                .delay_every(|_| Duration::from_millis(50).into_future(), None)
                 .collect::<Vec<_>>()
                 .await;
 

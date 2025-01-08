@@ -600,6 +600,9 @@ pub trait RxExt: Stream {
 
     /// Delays every event using a time window, provided by a closure.
     ///
+    /// Use max_buffer_size to limit the amount of buffered items that are awaiting
+    /// time window(s) to complete.
+    ///
     /// Note that this function consumes the stream passed into it and returns a
     /// wrapped version of it.
     ///
@@ -618,11 +621,15 @@ pub trait RxExt: Stream {
     ///
     /// #
     /// ```
-    fn delay_every<Fut: Future, F: Fn(&Self::Item) -> Fut>(self, f: F) -> DelayEvery<Self, Fut, F>
+    fn delay_every<Fut: Future, F: Fn(&Self::Item) -> Fut>(
+        self,
+        f: F,
+        max_buffer_size: Option<usize>,
+    ) -> DelayEvery<Self, Fut, F>
     where
         Self: Sized,
     {
-        assert_stream::<Self::Item, _>(DelayEvery::new(self, f))
+        assert_stream::<Self::Item, _>(DelayEvery::new(self, f, max_buffer_size))
     }
 
     /// Acts just like a `CombineLatest2`, where every next event is a tuple pair
