@@ -51,6 +51,7 @@ Currently there's 2 macro-generated `Stream` builders:
 - `CombineLatest2`..`CombineLatest9`
 - `Zip2`..`Zip9`
 
+## CombineLatest
 `CombineLatest` emits all latest items from n-`Stream`s
 
 ```rust
@@ -66,6 +67,7 @@ block_on(async {
 });
 ```
 
+## Zip
 `Zip` is similar, but instead emits all combined items by sequence:
 
 ```rust
@@ -87,7 +89,33 @@ futures-rx also exposes the `RxExt` trait, which, like `StreamExt`, provides typ
 Note that a lot of other Rx operators are already part of the `futures::StreamExt` trait. This crate will only ever contain Rx operators that are missing from `StreamExt`.
 Do use both `StreamExt` and `RxExt` to access all.
 
+Currently this crate supports:
 - `buffer`
+- `debounce`
+- `delay`
+- `delay_every`
+- `dematerialize`
+- `distinct`
+- `distinct_until_changed`
+- `end_with`
+- `inspect_done`
+- `materialize`
+- `pairwise`
+- `race`
+- `sample`
+- `share`
+- `share_behavior`
+- `share_replay`
+- `start_with`
+- `switch_map`
+- `timing`
+- `throttle`
+- `throttle_trailing`
+- `throttle_all`
+- `window`
+- `with_latest_from`
+
+## buffer
 ```rust
 futures::executor::block_on(async {
     use futures::stream::{self, StreamExt};
@@ -100,7 +128,7 @@ futures::executor::block_on(async {
 });
 ```
 
-- `debounce`
+## debounce
 ```rust
 futures::executor::block_on(async {
     stream
@@ -110,7 +138,7 @@ futures::executor::block_on(async {
 });
 ```
 
-- `delay`
+## delay
 ```rust
 futures::executor::block_on(async {
     let now = SystemTime::now();
@@ -124,7 +152,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `delay_every`
+## delay_every
 ```rust
 futures::executor::block_on(async {
     let now = Instant::now();
@@ -138,7 +166,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `dematerialize`
+## dematerialize
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter(1..=2);
@@ -152,7 +180,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `distinct`
+## distinct
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter([1, 1, 2, 1, 3, 2, 4, 5]);
@@ -162,7 +190,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `distinct_until_changed`
+## distinct_until_changed
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter([1, 1, 2, 3, 3, 3, 4, 5]);
@@ -172,7 +200,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `end_with`
+## end_with
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter(1..=5);
@@ -182,7 +210,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `inspect_done`
+## inspect_done
 ```rust
 futures::executor::block_on(async {
     let mut is_done = false;
@@ -196,7 +224,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `materialize`
+## materialize
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter(1..=2);
@@ -213,7 +241,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `pairwise`
+## pairwise
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter(0..=5);
@@ -227,7 +255,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `race`
+## race
 ```rust
 futures::executor::block_on(async {
     let mut phase = 0usize;
@@ -249,7 +277,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `sample`
+## sample
 ```rust
 futures::executor::block_on(async {
     let stream = create_stream(); // produces over time, interval is 20ms
@@ -263,9 +291,9 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `share`
-- `share_behavior`
-- `share_replay`
+## share
+## share_behavior
+## share_replay
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter(1usize..=3usize);
@@ -280,7 +308,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `start_with`
+## start_with
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter(1..=5);
@@ -290,7 +318,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `switch_map`
+## switch_map
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter(0usize..=3usize);
@@ -303,7 +331,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `throttle`
+## throttle
 ```rust
 futures::executor::block_on(async {
     let stream = create_stream(); // produces 0..=9 over time, interval is 50ms
@@ -316,7 +344,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `throttle_trailing`
+## throttle_trailing
 ```rust
 futures::executor::block_on(async {
     let stream = create_stream(); // produces 0..=9 over time, interval is 50ms
@@ -329,7 +357,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `throttle_all`
+## throttle_all
 ```rust
 futures::executor::block_on(async {
     let stream = create_stream(); // produces 0..=9 over time, interval is 50ms
@@ -342,7 +370,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `timing`
+## timing
 ```rust
 futures::executor::block_on(async {
     let stream = create_stream(); // produces 0..=9 over time, interval is 50ms
@@ -375,7 +403,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `window`
+## window
 ```rust
 futures::executor::block_on(async {
     let all_events = stream::iter(0..=8)
@@ -402,7 +430,7 @@ futures::executor::block_on(async {
 });    
 ```
 
-- `with_latest_from`
+## with_latest_from
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter(0..=3);
