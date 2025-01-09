@@ -99,20 +99,19 @@ mod test {
 
     #[test]
     fn smoke() {
-        let mut phase = 0usize;
-        let fast_stream = stream::iter(["fast"]);
-        let slow_stream = stream::poll_fn(move |_| {
-            phase += 1;
-
-            match phase {
-                1 => Poll::Pending,
-                2 => Poll::Ready(Some("slow")),
-                3 => Poll::Ready(None),
-                _ => unreachable!(),
-            }
-        });
-
         block_on(async {
+            let mut phase = 0usize;
+            let fast_stream = stream::iter(["fast"]);
+            let slow_stream = stream::poll_fn(move |_| {
+                phase += 1;
+
+                match phase {
+                    1 => Poll::Pending,
+                    2 => Poll::Ready(Some("slow")),
+                    3 => Poll::Ready(None),
+                    _ => unreachable!(),
+                }
+            });
             let all_events = slow_stream.race(fast_stream).collect::<Vec<_>>().await;
 
             assert_eq!(all_events, ["fast"]);

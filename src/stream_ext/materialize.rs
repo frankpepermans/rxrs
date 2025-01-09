@@ -64,20 +64,22 @@ impl<S: Stream> Stream for Materialize<S> {
 mod test {
     use futures::{executor::block_on, stream, StreamExt};
 
-    use crate::RxExt;
+    use crate::{Notification, RxExt};
 
     #[test]
     fn smoke() {
-        let stream = stream::iter(1..=2);
-
         block_on(async {
-            let all_events = stream
-                .materialize()
-                .dematerialize()
-                .collect::<Vec<_>>()
-                .await;
+            let stream = stream::iter(1..=2);
+            let all_events = stream.materialize().collect::<Vec<_>>().await;
 
-            assert_eq!(all_events, [1, 2]);
+            assert_eq!(
+                all_events,
+                [
+                    Notification::Next(1),
+                    Notification::Next(2),
+                    Notification::Complete
+                ]
+            );
         });
     }
 }

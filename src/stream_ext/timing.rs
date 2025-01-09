@@ -82,9 +82,8 @@ mod test {
 
     #[test]
     fn smoke() {
-        let stream = create_stream();
-
         block_on(async {
+            let stream = create_stream();
             let start = Instant::now();
             let all_events = stream.timing().collect::<Vec<_>>().await;
             let timestamps = all_events

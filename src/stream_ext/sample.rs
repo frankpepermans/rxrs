@@ -85,13 +85,12 @@ mod test {
 
     #[test]
     fn smoke() {
-        let stream = futures_time::stream::interval(Duration::from_millis(20))
-            .take(6)
-            .enumerate()
-            .map(|(index, _)| index);
-        let sampler = futures_time::stream::interval(Duration::from_millis(50)).take(6);
-
         block_on(async {
+            let stream = futures_time::stream::interval(Duration::from_millis(20))
+                .take(6)
+                .enumerate()
+                .map(|(index, _)| index);
+            let sampler = futures_time::stream::interval(Duration::from_millis(50)).take(6);
             let all_events = stream.sample(sampler).collect::<Vec<_>>().await;
 
             assert_eq!(all_events, [1, 3, 5]);

@@ -70,9 +70,8 @@ mod test {
 
     #[test]
     fn smoke() {
-        let stream = stream::iter(1..=5);
-
         block_on(async {
+            let stream = stream::iter(1..=5);
             let all_events = stream.start_with([0]).collect::<Vec<_>>().await;
 
             assert_eq!(all_events, [0, 1, 2, 3, 4, 5]);

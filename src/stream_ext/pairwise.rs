@@ -86,9 +86,8 @@ mod test {
 
     #[test]
     fn smoke() {
-        let stream = stream::iter(0..=5);
-
         block_on(async {
+            let stream = stream::iter(0..=5);
             let all_events = stream
                 .pairwise()
                 .map(|(prev, next)| (prev, *next))

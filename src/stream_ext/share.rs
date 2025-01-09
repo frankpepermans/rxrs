@@ -74,11 +74,10 @@ mod test {
 
     #[test]
     fn smoke() {
-        let stream = stream::iter(1usize..=3usize);
-        let s1 = stream.share();
-        let s2 = s1.clone();
-
         block_on(async {
+            let stream = stream::iter(1usize..=3usize);
+            let s1 = stream.share();
+            let s2 = s1.clone();
             let (a, b) = join(s1.collect::<Vec<_>>(), s2.collect::<Vec<_>>()).await;
 
             assert_eq!(a, [1.into(), 2.into(), 3.into()]);

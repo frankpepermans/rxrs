@@ -96,9 +96,8 @@ mod test {
 
     #[test]
     fn smoke() {
-        let stream = stream::iter(0usize..=3usize);
-
         block_on(async {
+            let stream = stream::iter(0usize..=3usize);
             let all_events = stream
                 .switch_map(|i| stream::iter([i.pow(2), i.pow(3), i.pow(4)]))
                 .collect::<Vec<_>>()
