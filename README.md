@@ -1,4 +1,5 @@
 # futures-rx: lightweight Rx implementation built upon `futures::Stream`
+[![](https://github.com/frankpepermans/rxrs/actions/workflows/main.yml/badge.svg)](https://github.com/frankpepermans/rxrs)
 [![](https://docs.rs/futures-rx/badge.svg)](https://docs.rs/futures-rx/latest/futures_rx/stream_ext/trait.RxExt.html)
 [![](https://img.shields.io/crates/v/futures-rx.svg)](https://crates.io/crates/futures-rx)
 [![](https://img.shields.io/crates/d/futures-rx.svg)](https://crates.io/crates/futures-rx)

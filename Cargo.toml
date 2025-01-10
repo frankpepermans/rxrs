@@ -1,6 +1,6 @@
 [package]
 name = "futures-rx"
-version = "0.1.22"
+version = "0.1.23"
 edition = "2021"
 description = "Rx implementations for the futures crate"
 authors = ["Frank Pepermans <frank@igindo.com>"]
@@ -9,6 +9,7 @@ license = "MIT"
 readme = "README.md"
 categories = ["asynchronous"]
 keywords = ["Observable", "Subject", "rx", "futures"]
+documentation = "https://docs.rs/futures-rx/latest/futures_rx/stream_ext/trait.RxExt.html"
 
 [dependencies]
 futures = "0.3.31"

@@ -9,7 +9,7 @@ permissions:
   contents: read
   checks: write
 
-name: base check
+name: build & tests
 jobs:
   check:
     name: Check
