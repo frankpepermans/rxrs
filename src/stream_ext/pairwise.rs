@@ -1,6 +1,6 @@
 use std::{
     pin::Pin,
-    sync::Arc,
+    rc::Rc,
     task::{Context, Poll},
 };
 
@@ -10,7 +10,7 @@ use futures::{
 };
 use pin_project_lite::pin_project;
 
-use crate::Event;
+use crate::EventLite;
 
 pin_project! {
     /// Stream for the [`pairwise`](RxStreamExt::pairwise) method.
@@ -18,7 +18,7 @@ pin_project! {
     pub struct Pairwise<S: Stream> {
         #[pin]
         stream: Fuse<S>,
-        previous: Option<Arc<S::Item>>,
+        previous: Option<Rc<S::Item>>,
     }
 }
 
@@ -44,18 +44,18 @@ impl<S> Stream for Pairwise<S>
 where
     S: Stream,
 {
-    type Item = (S::Item, Event<S::Item>);
+    type Item = (S::Item, EventLite<S::Item>);
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         match this.stream.as_mut().poll_next(cx) {
             Poll::Ready(Some(event)) => {
-                let next = Arc::new(event);
+                let next = Rc::new(event);
 
-                if let Some(prev) = this.previous.replace(Arc::clone(&next)) {
-                    if let Ok(prev) = Arc::try_unwrap(prev) {
-                        Poll::Ready(Some((prev, Event(next))))
+                if let Some(prev) = this.previous.replace(Rc::clone(&next)) {
+                    if let Ok(prev) = Rc::try_unwrap(prev) {
+                        Poll::Ready(Some((prev, EventLite(next))))
                     } else {
                         unreachable!()
                     }

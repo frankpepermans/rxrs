@@ -18,7 +18,9 @@ use switch_map::SwitchMap;
 use timing::{Timed, Timing};
 use window::Window;
 
-use crate::{BehaviorSubject, CombineLatest2, Event, Notification, PublishSubject, ReplaySubject};
+use crate::{
+    BehaviorSubject, CombineLatest2, Event, EventLite, Notification, PublishSubject, ReplaySubject,
+};
 
 use self::{delay::Delay, end_with::EndWith, throttle::Throttle};
 
@@ -305,7 +307,7 @@ pub trait RxExt: Stream {
     where
         Self: Sized,
     {
-        assert_stream::<(Self::Item, Event<Self::Item>), _>(Pairwise::new(self))
+        assert_stream::<(Self::Item, EventLite<Self::Item>), _>(Pairwise::new(self))
     }
 
     /// Delays events using a debounce time window.
