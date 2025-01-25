@@ -1,14 +1,13 @@
 use std::{
-    cell::RefCell,
     collections::VecDeque,
-    rc::{Rc, Weak},
+    sync::{Arc, RwLock, Weak},
 };
 
 use crate::{Controller, Event, Observable};
 
 use super::Subject;
 
-type Subscription<T> = Weak<RefCell<Controller<Event<T>>>>;
+type Subscription<T> = Weak<RwLock<Controller<Event<T>>>>;
 
 pub(crate) enum ReplayStrategy {
     BufferSize(usize),
@@ -19,7 +18,7 @@ pub struct ReplaySubject<T> {
     replay_strategy: ReplayStrategy,
     subscriptions: Vec<Subscription<T>>,
     is_closed: bool,
-    buffer: VecDeque<Rc<T>>,
+    buffer: VecDeque<Arc<T>>,
 }
 
 impl<T> Subject for ReplaySubject<T> {
@@ -30,12 +29,12 @@ impl<T> Subject for ReplaySubject<T> {
 
         stream.is_done = self.is_closed;
 
-        let stream = Rc::new(RefCell::new(stream));
+        let stream = Arc::new(RwLock::new(stream));
 
-        self.subscriptions.push(Rc::downgrade(&stream));
+        self.subscriptions.push(Arc::downgrade(&stream));
 
         for event in &self.buffer {
-            stream.borrow_mut().push(Event(Rc::clone(event)));
+            stream.write().unwrap().push(Event(Arc::clone(event)));
         }
 
         Observable::new(stream)
@@ -45,12 +44,12 @@ impl<T> Subject for ReplaySubject<T> {
         self.is_closed = true;
 
         for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.borrow_mut().is_done = true;
+            sub.write().unwrap().is_done = true;
         }
     }
 
     fn next(&mut self, value: Self::Item) {
-        let rc = Rc::new(value);
+        let rc = Arc::new(value);
 
         if let ReplayStrategy::BufferSize(size) = &self.replay_strategy {
             if self.buffer.len() == *size {
@@ -58,10 +57,10 @@ impl<T> Subject for ReplaySubject<T> {
             }
         }
 
-        self.buffer.push_back(Rc::clone(&rc));
+        self.buffer.push_back(Arc::clone(&rc));
 
         for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.borrow_mut().push(Event(Rc::clone(&rc)));
+            sub.write().unwrap().push(Event(Arc::clone(&rc)));
         }
     }
 

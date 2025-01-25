@@ -149,6 +149,9 @@ mod test {
         });
     }
 
+    /// 50ms: 0
+    /// 100ms: 1
+    /// 150ms: 2
     fn create_stream() -> impl Stream<Item = usize> {
         stream::unfold(0, move |count| async move {
             if count < 10 {

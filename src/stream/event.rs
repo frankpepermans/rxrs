@@ -1,21 +1,21 @@
-use std::{ops::Deref, rc::Rc};
+use std::{ops::Deref, sync::Arc};
 
 #[derive(Debug)]
-pub struct Event<T>(pub(crate) Rc<T>);
+pub struct Event<T>(pub(crate) Arc<T>);
 
 impl<T> Event<T> {
     pub fn borrow_value(&self) -> &T {
         &self.0
     }
 
-    pub fn try_unwrap(self) -> Result<T, Rc<T>> {
-        Rc::try_unwrap(self.0)
+    pub fn try_unwrap(self) -> Result<T, Arc<T>> {
+        Arc::try_unwrap(self.0)
     }
 }
 
 impl<T: Clone> Event<T> {
     pub fn unwrap(self) -> T {
-        Rc::unwrap_or_clone(self.0)
+        Arc::unwrap_or_clone(self.0)
     }
 }
 
@@ -29,7 +29,7 @@ impl<T> Deref for Event<T> {
 
 impl<T> Clone for Event<T> {
     fn clone(&self) -> Self {
-        Self(Rc::clone(&self.0))
+        Self(Arc::clone(&self.0))
     }
 }
 

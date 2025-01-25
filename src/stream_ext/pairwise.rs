@@ -1,6 +1,6 @@
 use std::{
     pin::Pin,
-    rc::Rc,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -18,7 +18,7 @@ pin_project! {
     pub struct Pairwise<S: Stream> {
         #[pin]
         stream: Fuse<S>,
-        previous: Option<Rc<S::Item>>,
+        previous: Option<Arc<S::Item>>,
     }
 }
 
@@ -51,10 +51,10 @@ where
 
         match this.stream.as_mut().poll_next(cx) {
             Poll::Ready(Some(event)) => {
-                let next = Rc::new(event);
+                let next = Arc::new(event);
 
-                if let Some(prev) = this.previous.replace(Rc::clone(&next)) {
-                    if let Ok(prev) = Rc::try_unwrap(prev) {
+                if let Some(prev) = this.previous.replace(Arc::clone(&next)) {
+                    if let Ok(prev) = Arc::try_unwrap(prev) {
                         Poll::Ready(Some((prev, Event(next))))
                     } else {
                         unreachable!()

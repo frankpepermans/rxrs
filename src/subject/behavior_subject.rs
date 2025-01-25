@@ -1,18 +1,15 @@
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+use std::sync::{Arc, RwLock, Weak};
 
 use crate::{Controller, Event, Observable};
 
 use super::Subject;
 
-type Subscription<T> = Weak<RefCell<Controller<Event<T>>>>;
+type Subscription<T> = Weak<RwLock<Controller<Event<T>>>>;
 
 pub struct BehaviorSubject<T> {
     subscriptions: Vec<Subscription<T>>,
     is_closed: bool,
-    latest_event: Option<Rc<T>>,
+    latest_event: Option<Arc<T>>,
 }
 
 impl<T> Subject for BehaviorSubject<T> {
@@ -23,12 +20,12 @@ impl<T> Subject for BehaviorSubject<T> {
 
         stream.is_done = self.is_closed;
 
-        let stream = Rc::new(RefCell::new(stream));
+        let stream = Arc::new(RwLock::new(stream));
 
-        self.subscriptions.push(Rc::downgrade(&stream));
+        self.subscriptions.push(Arc::downgrade(&stream));
 
         if let Some(event) = &self.latest_event {
-            stream.borrow_mut().push(Event(Rc::clone(event)));
+            stream.write().unwrap().push(Event(Arc::clone(event)));
         }
 
         Observable::new(stream)
@@ -38,17 +35,17 @@ impl<T> Subject for BehaviorSubject<T> {
         self.is_closed = true;
 
         for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.borrow_mut().is_done = true;
+            sub.write().unwrap().is_done = true;
         }
     }
 
     fn next(&mut self, value: Self::Item) {
-        let rc = Rc::new(value);
+        let rc = Arc::new(value);
 
-        self.latest_event = Some(Rc::clone(&rc));
+        self.latest_event = Some(Arc::clone(&rc));
 
         for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.borrow_mut().push(Event(Rc::clone(&rc)));
+            sub.write().unwrap().push(Event(Arc::clone(&rc)));
         }
     }
 
