@@ -3,11 +3,11 @@ pub mod publish_subject;
 pub mod replay_subject;
 pub mod shareable_subject;
 
-use std::{cell::RefCell, rc::Rc};
+use std::sync::{Arc, RwLock};
 
 use crate::{Controller, Event, Observable};
 
-type Subscription<T> = Rc<RefCell<Controller<Event<T>>>>;
+type Subscription<T> = Arc<RwLock<Controller<Event<T>>>>;
 
 pub trait Subject {
     type Item;
