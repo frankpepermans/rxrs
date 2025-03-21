@@ -65,6 +65,10 @@ impl<T> BehaviorSubject<T> {
             latest_event: None,
         }
     }
+
+    pub fn get_value(&self) -> Option<&T> {
+        self.latest_event.as_ref().map(|it| it.as_ref())
+    }
 }
 
 impl<T> Drop for BehaviorSubject<T> {
