@@ -66,6 +66,14 @@ impl<T> BehaviorSubject<T> {
         }
     }
 
+    pub fn with_initial_value(value: T) -> Self {
+        Self {
+            subscriptions: Vec::new(),
+            is_closed: false,
+            latest_event: Some(Arc::new(value)),
+        }
+    }
+
     pub fn get_value(&self) -> Option<&T> {
         self.latest_event.as_ref().map(|it| it.as_ref())
     }
