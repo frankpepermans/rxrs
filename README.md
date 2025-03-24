@@ -10,7 +10,7 @@ Subjects are `Stream` controllers, that allow pushing new events to them, compar
 You can subscribe to them, which returns an `Observable`, which just implements `Stream`.
 
 This `Observable` can be polled, but all items are wrapped in an `Event` struct,
-which internally handles an `Rc` containing a reference to the actual item.
+which internally uses an `Arc` containing a reference to the actual item.
 
 The subjects are:
 - `PublishSubject`
@@ -38,7 +38,7 @@ let another_obs = subject.subscribe();
 
 block_on(async {
     // Since Subjects allow for multiple subscribers, events are
-    // wrapped in Event types, which internally manage an Rc to the actual event.
+    // wrapped in Event types, which internally use an Arc to the actual event.
     // Here, we just borrow the underlying value and deref it.
     let res = obs.map(|it| *it.borrow_value()).collect::<Vec<i32>>().await;
 
@@ -302,7 +302,7 @@ futures::executor::block_on(async {
     let s2 = s1.clone(); // second subscription
     let (a, b) = join(s1.collect::<Vec<_>>(), s2.collect::<Vec<_>>()).await;
 
-    // as s1 and s2 produce Events, which wrap an Rc
+    // as s1 and s2 produce Events, which wrap an Arc
     // we can call into() on the test values to convert them into Events as well.
     assert_eq!(a, [1.into(), 2.into(), 3.into()]);
     assert_eq!(b, [1.into(), 2.into(), 3.into()]);
