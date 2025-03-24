@@ -43,6 +43,8 @@ impl<T> Subject for PublishSubject<T> {
     }
 
     fn for_each_subscription<F: FnMut(&mut super::Subscription<Self::Item>)>(&mut self, mut f: F) {
+        self.subscriptions.retain(|sub| sub.upgrade().is_some());
+
         for mut sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
             f(&mut sub);
         }
@@ -68,6 +70,8 @@ impl<T> Drop for PublishSubject<T> {
 #[cfg(test)]
 mod test {
     use futures::{executor::block_on, StreamExt};
+
+    use crate::RxExt;
 
     use super::*;
 
@@ -143,5 +147,21 @@ mod test {
         });
 
         drop(some_other_obs);
+    }
+
+    #[test]
+    fn can_create_events() {
+        let mut subject = PublishSubject::new();
+        let obs = subject
+            .subscribe()
+            .start_with([Event::from(0), Event::from(1), Event::from(2)]);
+
+        subject.close();
+
+        block_on(async {
+            let res = obs.map(|it| *it).collect::<Vec<_>>().await;
+
+            assert_eq!(res, [0, 1, 2]);
+        });
     }
 }

@@ -50,6 +50,8 @@ impl<T> Subject for BehaviorSubject<T> {
     }
 
     fn for_each_subscription<F: FnMut(&mut super::Subscription<Self::Item>)>(&mut self, mut f: F) {
+        self.subscriptions.retain(|sub| sub.upgrade().is_some());
+
         for mut sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
             f(&mut sub);
         }
@@ -82,5 +84,63 @@ impl<T> BehaviorSubject<T> {
 impl<T> Drop for BehaviorSubject<T> {
     fn drop(&mut self) {
         self.close();
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use futures::{executor::block_on, StreamExt};
+
+    use crate::{BehaviorSubject, PublishSubject, Subject};
+
+    #[test]
+    fn can_subscribe_multiple_times() {
+        block_on(async {
+            let mut subject = BehaviorSubject::with_initial_value(0);
+
+            assert_eq!(subject.get_value(), Some(&0));
+
+            let (stream_a, stream_b) = (subject.subscribe(), subject.subscribe());
+
+            subject.next(1);
+            subject.close();
+
+            let events_a = stream_a.map(|it| *it).collect::<Vec<_>>().await;
+            let events_b = stream_b.map(|it| *it).collect::<Vec<_>>().await;
+
+            assert_eq!(events_a, [0, 1]);
+            assert_eq!(events_b, [0, 1]);
+        });
+    }
+
+    #[test]
+    fn replays_latest_event() {
+        block_on(async {
+            let mut subject_a = PublishSubject::new();
+            let mut subject_b = BehaviorSubject::new();
+
+            subject_a.next(1);
+            subject_b.next(1);
+            subject_a.close();
+            subject_b.close();
+
+            let (stream_a, stream_b) = (subject_a.subscribe(), subject_b.subscribe());
+            let events_a = stream_a.map(|it| *it).collect::<Vec<_>>().await;
+            let events_b = stream_b.map(|it| *it).collect::<Vec<_>>().await;
+
+            assert_eq!(events_a, []);
+            assert_eq!(events_b, [1]);
+        });
+    }
+
+    #[test]
+    fn can_get_value() {
+        let mut subject_a = BehaviorSubject::new();
+        let subject_b = BehaviorSubject::with_initial_value(1);
+
+        subject_a.next(1);
+
+        assert_eq!(subject_a.get_value(), Some(&1));
+        assert_eq!(subject_b.get_value(), Some(&1));
     }
 }
