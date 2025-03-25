@@ -179,8 +179,8 @@ pub trait RxExt: Stream {
     /// use futures::{stream::{StreamExt, self}, future::join};
     /// use futures_rx::{Notification, RxExt};
     ///
-    /// let stream = stream::iter(0..=3);
-    /// let stream = stream.share_behavior();
+    /// let stream = stream::iter(1..=3);
+    /// let stream = stream.share_behavior(0);
     ///
     /// stream.clone().collect::<Vec<_>>().await; // consume all events beforehand
     ///
@@ -199,11 +199,14 @@ pub trait RxExt: Stream {
     ///
     /// #
     /// ```
-    fn share_behavior(self) -> Shared<Self, BehaviorSubject<Self::Item>>
+    fn share_behavior(self, initial_value: Self::Item) -> Shared<Self, BehaviorSubject<Self::Item>>
     where
         Self: Sized,
     {
-        assert_stream::<Event<Self::Item>, _>(Shared::new(self, BehaviorSubject::new()))
+        assert_stream::<Event<Self::Item>, _>(Shared::new(
+            self,
+            BehaviorSubject::new(initial_value),
+        ))
     }
 
     /// Transforms a `Stream` into a broadcast one, which can be subscribed to more than once, after cloning the shared version.

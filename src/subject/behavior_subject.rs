@@ -9,7 +9,7 @@ type Subscription<T> = Weak<RwLock<Controller<Event<T>>>>;
 pub struct BehaviorSubject<T> {
     subscriptions: Vec<Subscription<T>>,
     is_closed: bool,
-    latest_event: Option<Arc<T>>,
+    value: Arc<T>,
 }
 
 impl<T> Subject for BehaviorSubject<T> {
@@ -24,9 +24,7 @@ impl<T> Subject for BehaviorSubject<T> {
 
         self.subscriptions.push(Arc::downgrade(&stream));
 
-        if let Some(event) = &self.latest_event {
-            stream.write().unwrap().push(Event(Arc::clone(event)));
-        }
+        stream.write().unwrap().push(Event(Arc::clone(&self.value)));
 
         Observable::new(stream)
     }
@@ -42,7 +40,7 @@ impl<T> Subject for BehaviorSubject<T> {
     fn next(&mut self, value: Self::Item) {
         let rc = Arc::new(value);
 
-        self.latest_event = Some(Arc::clone(&rc));
+        self.value = Arc::clone(&rc);
 
         for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
             sub.write().unwrap().push(Event(Arc::clone(&rc)));
@@ -60,24 +58,16 @@ impl<T> Subject for BehaviorSubject<T> {
 
 #[allow(clippy::new_without_default)]
 impl<T> BehaviorSubject<T> {
-    pub fn new() -> Self {
+    pub fn new(value: T) -> Self {
         Self {
             subscriptions: Vec::new(),
             is_closed: false,
-            latest_event: None,
+            value: value.into(),
         }
     }
 
-    pub fn with_initial_value(value: T) -> Self {
-        Self {
-            subscriptions: Vec::new(),
-            is_closed: false,
-            latest_event: Some(Arc::new(value)),
-        }
-    }
-
-    pub fn get_value(&self) -> Option<&T> {
-        self.latest_event.as_ref().map(|it| it.as_ref())
+    pub fn get_value(&self) -> &T {
+        &self.value
     }
 }
 
@@ -96,9 +86,9 @@ mod test {
     #[test]
     fn can_subscribe_multiple_times() {
         block_on(async {
-            let mut subject = BehaviorSubject::with_initial_value(0);
+            let mut subject = BehaviorSubject::new(0);
 
-            assert_eq!(subject.get_value(), Some(&0));
+            assert_eq!(subject.get_value(), &0);
 
             let (stream_a, stream_b) = (subject.subscribe(), subject.subscribe());
 
@@ -117,7 +107,7 @@ mod test {
     fn replays_latest_event() {
         block_on(async {
             let mut subject_a = PublishSubject::new();
-            let mut subject_b = BehaviorSubject::new();
+            let mut subject_b = BehaviorSubject::new(0);
 
             subject_a.next(1);
             subject_b.next(1);
@@ -135,12 +125,12 @@ mod test {
 
     #[test]
     fn can_get_value() {
-        let mut subject_a = BehaviorSubject::new();
-        let subject_b = BehaviorSubject::with_initial_value(1);
+        let mut subject = BehaviorSubject::new(0);
 
-        subject_a.next(1);
+        assert_eq!(subject.get_value(), &0);
 
-        assert_eq!(subject_a.get_value(), Some(&1));
-        assert_eq!(subject_b.get_value(), Some(&1));
+        subject.next(1);
+
+        assert_eq!(subject.get_value(), &1);
     }
 }
