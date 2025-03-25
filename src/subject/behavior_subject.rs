@@ -32,9 +32,9 @@ impl<T> Subject for BehaviorSubject<T> {
     fn close(&mut self) {
         self.is_closed = true;
 
-        for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.write().unwrap().is_done = true;
-        }
+        self.for_each_subscription(|it| {
+            it.write().unwrap().is_done = true;
+        });
     }
 
     fn next(&mut self, value: Self::Item) {
@@ -42,17 +42,19 @@ impl<T> Subject for BehaviorSubject<T> {
 
         self.value = Arc::clone(&rc);
 
-        for sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            sub.write().unwrap().push(Event(Arc::clone(&rc)));
-        }
+        self.for_each_subscription(|it| {
+            it.write().unwrap().push(Event(Arc::clone(&rc)));
+        });
     }
 
     fn for_each_subscription<F: FnMut(&mut super::Subscription<Self::Item>)>(&mut self, mut f: F) {
-        self.subscriptions.retain(|sub| sub.upgrade().is_some());
+        self.subscriptions.retain(|sub| {
+            sub.upgrade().is_some_and(|mut it| {
+                f(&mut it);
 
-        for mut sub in &mut self.subscriptions.iter().flat_map(|it| it.upgrade()) {
-            f(&mut sub);
-        }
+                true
+            })
+        });
     }
 }
 
