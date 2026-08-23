@@ -1,6 +1,6 @@
 use std::{
     pin::Pin,
-    rc::Rc,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -18,7 +18,7 @@ pin_project! {
     pub struct Pairwise<S: Stream> {
         #[pin]
         stream: Fuse<S>,
-        previous: Option<Rc<S::Item>>,
+        previous: Option<Arc<S::Item>>,
     }
 }
 
@@ -44,21 +44,17 @@ impl<S> Stream for Pairwise<S>
 where
     S: Stream,
 {
-    type Item = (S::Item, EventLite<S::Item>);
+    type Item = (EventLite<S::Item>, EventLite<S::Item>);
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         match this.stream.as_mut().poll_next(cx) {
             Poll::Ready(Some(event)) => {
-                let next = Rc::new(event);
+                let next = Arc::new(event);
 
-                if let Some(prev) = this.previous.replace(Rc::clone(&next)) {
-                    if let Ok(prev) = Rc::try_unwrap(prev) {
-                        Poll::Ready(Some((prev, EventLite(next))))
-                    } else {
-                        unreachable!()
-                    }
+                if let Some(prev) = this.previous.replace(Arc::clone(&next)) {
+                    Poll::Ready(Some((EventLite(prev), EventLite(next))))
                 } else {
                     cx.waker().wake_by_ref();
 
@@ -90,11 +86,24 @@ mod test {
             let stream = stream::iter(0..=5);
             let all_events = stream
                 .pairwise()
-                .map(|(prev, next)| (prev, *next))
+                .map(|(prev, next)| (*prev, *next))
                 .collect::<Vec<_>>()
                 .await;
 
             assert_eq!(all_events, [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
+        });
+    }
+
+    /// Events stay valid when the consumer holds on to them, instead of
+    /// dropping them before the next poll.
+    #[test]
+    fn retained_events() {
+        block_on(async {
+            let all_events = stream::iter(0..=5).pairwise().collect::<Vec<_>>().await;
+
+            assert_eq!(all_events.len(), 5);
+            assert_eq!(*all_events[0].0, 0);
+            assert_eq!(*all_events[4].1, 5);
         });
     }
 }

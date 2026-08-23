@@ -83,14 +83,21 @@ mod test {
 
     use crate::RxExt;
 
+    /// The sampler ticks at 2⅓ times the event interval, so that a sample
+    /// never coincides with an event and scheduler drift cannot decide which
+    /// of two events is the latest one.
+    const EVENT_INTERVAL: u64 = 120;
+    const SAMPLE_INTERVAL: u64 = 280;
+
     #[test]
     fn smoke() {
         block_on(async {
-            let stream = futures_time::stream::interval(Duration::from_millis(20))
+            let stream = futures_time::stream::interval(Duration::from_millis(EVENT_INTERVAL))
                 .take(6)
                 .enumerate()
                 .map(|(index, _)| index);
-            let sampler = futures_time::stream::interval(Duration::from_millis(50)).take(6);
+            let sampler =
+                futures_time::stream::interval(Duration::from_millis(SAMPLE_INTERVAL)).take(3);
             let all_events = stream.sample(sampler).collect::<Vec<_>>().await;
 
             assert_eq!(all_events, [1, 3, 5]);

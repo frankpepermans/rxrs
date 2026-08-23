@@ -111,48 +111,61 @@ where
 
 #[cfg(test)]
 mod test {
+    use std::future::Future;
+
     use futures::{executor::block_on, stream, Stream, StreamExt};
     use futures_time::{future::IntoFuture, time::Duration};
 
     use crate::RxExt;
+
+    /// The source emits every [`EVENT_INTERVAL`], the throttle window spans
+    /// [`THROTTLE_WINDOW`]. The two are deliberately kept away from a whole
+    /// multiple of each other, so that scheduler drift cannot change how many
+    /// events fall inside a single window.
+    const EVENT_INTERVAL: u64 = 150;
+    const THROTTLE_WINDOW: u64 = 400;
 
     #[test]
     fn smoke() {
         block_on(async {
             let stream = create_stream();
             let all_events = stream
-                .throttle(|_| Duration::from_millis(175).into_future())
+                .throttle(|_| throttle_window())
                 .collect::<Vec<_>>()
                 .await;
 
-            assert_eq!(all_events, [0, 4, 8]);
+            assert_eq!(all_events, [0, 3, 6, 9]);
         });
 
         block_on(async {
             let stream = create_stream();
             let all_events = stream
-                .throttle_trailing(|_| Duration::from_millis(175).into_future())
+                .throttle_trailing(|_| throttle_window())
                 .collect::<Vec<_>>()
                 .await;
 
-            assert_eq!(all_events, [3, 7]);
+            assert_eq!(all_events, [2, 5, 8]);
         });
 
         block_on(async {
             let stream = create_stream();
             let all_events = stream
-                .throttle_all(|_| Duration::from_millis(175).into_future())
+                .throttle_all(|_| throttle_window())
                 .collect::<Vec<_>>()
                 .await;
 
-            assert_eq!(all_events, [0, 3, 4, 7, 8]);
+            assert_eq!(all_events, [0, 2, 3, 5, 6, 8, 9]);
         });
+    }
+
+    fn throttle_window() -> impl Future<Output = futures_time::time::Instant> {
+        Duration::from_millis(THROTTLE_WINDOW).into_future()
     }
 
     fn create_stream() -> impl Stream<Item = usize> {
         stream::unfold(0, move |count| async move {
             if count < 10 {
-                Duration::from_millis(50).into_future().await;
+                Duration::from_millis(EVENT_INTERVAL).into_future().await;
 
                 Some((count, count + 1))
             } else {

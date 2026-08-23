@@ -285,10 +285,10 @@ pub trait RxExt: Stream {
     /// Note that this function consumes the stream passed into it and returns a
     /// wrapped version of it.
     ///
-    /// The next value in the tuple is a value reference, and therefore wrapped inside an `Event` struct.
-    /// An `Event` is a helper object for ref counted events.
-    /// As the next event will also need to be emitted as the previous event in the next pair,
-    /// it is first made available as next using a ref count - `Event`.
+    /// Both values in the tuple are value references, and therefore wrapped inside an `EventLite` struct.
+    /// An `EventLite` is a helper object for ref counted events.
+    /// As every event is emitted twice - once as next, then again as previous in the following pair -
+    /// they are made available using a ref count - `EventLite`.
     ///
     /// # Examples
     ///
@@ -299,7 +299,7 @@ pub trait RxExt: Stream {
     ///
     /// let stream = stream::iter(0..=3);
     /// let stream = stream.pairwise();
-    /// let stream = stream.map(|(prev, next)| (prev, *next)); // we can deref here to i32
+    /// let stream = stream.map(|(prev, next)| (*prev, *next)); // we can deref here to i32
     ///
     /// assert_eq!(vec![(0, 1), (1, 2), (2, 3)], stream.collect::<Vec<_>>().await);
     /// # });
@@ -310,7 +310,7 @@ pub trait RxExt: Stream {
     where
         Self: Sized,
     {
-        assert_stream::<(Self::Item, EventLite<Self::Item>), _>(Pairwise::new(self))
+        assert_stream::<(EventLite<Self::Item>, EventLite<Self::Item>), _>(Pairwise::new(self))
     }
 
     /// Delays events using a debounce time window.

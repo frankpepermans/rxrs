@@ -1,21 +1,21 @@
-use std::{ops::Deref, rc::Rc};
+use std::{ops::Deref, sync::Arc};
 
 #[derive(Debug)]
-pub struct EventLite<T>(pub(crate) Rc<T>);
+pub struct EventLite<T>(pub(crate) Arc<T>);
 
 impl<T> EventLite<T> {
     pub fn borrow_value(&self) -> &T {
         &self.0
     }
 
-    pub fn try_unwrap(self) -> Result<T, Rc<T>> {
-        Rc::try_unwrap(self.0)
+    pub fn try_unwrap(self) -> Result<T, Arc<T>> {
+        Arc::try_unwrap(self.0)
     }
 }
 
 impl<T: Clone> EventLite<T> {
     pub fn unwrap(self) -> T {
-        Rc::unwrap_or_clone(self.0)
+        Arc::unwrap_or_clone(self.0)
     }
 }
 
@@ -29,7 +29,7 @@ impl<T> Deref for EventLite<T> {
 
 impl<T> Clone for EventLite<T> {
     fn clone(&self) -> Self {
-        Self(Rc::clone(&self.0))
+        Self(Arc::clone(&self.0))
     }
 }
 
