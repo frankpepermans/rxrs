@@ -50,6 +50,8 @@ where
 {
     fn is_terminated(&self) -> bool {
         self.stream.is_terminated()
+            && self.delayed_events.is_empty()
+            && self.delayed_event.is_none()
     }
 }
 
@@ -62,50 +64,41 @@ where
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
-        let mut did_push = false;
 
-        if let Poll::Ready(Some(event)) = this.stream.poll_next(cx) {
-            did_push = true;
-
-            if let Some(max_buffer_size) = this.max_buffer_size {
-                while this.delayed_events.len() >= *max_buffer_size {
-                    this.delayed_events.pop_front();
+        let is_done = match this.stream.as_mut().poll_next(cx) {
+            Poll::Ready(Some(event)) => {
+                if let Some(max_buffer_size) = this.max_buffer_size {
+                    while this.delayed_events.len() >= *max_buffer_size {
+                        this.delayed_events.pop_front();
+                    }
                 }
-            }
 
-            this.delayed_events.push_back(event);
+                this.delayed_events.push_back(event);
+
+                false
+            }
+            Poll::Ready(None) => true,
+            Poll::Pending => false,
         };
 
         if this.current_interval.is_none() {
-            if this.delayed_events.is_empty() {
-                return Poll::Ready(None);
-            }
-
             if let Some(event) = this.delayed_events.pop_front() {
                 this.current_interval.set(Some((this.f)(&event)));
                 *this.delayed_event = Some(event);
             }
         }
 
-        if let Some(interval) = this.current_interval.as_mut().as_pin_mut() {
-            match interval.poll(cx) {
+        match this.current_interval.as_mut().as_pin_mut() {
+            Some(interval) => match interval.poll(cx) {
                 Poll::Ready(_) => {
                     this.current_interval.set(None);
 
                     Poll::Ready(this.delayed_event.take())
                 }
-                Poll::Pending => {
-                    cx.waker().wake_by_ref();
-
-                    Poll::Pending
-                }
-            }
-        } else {
-            if !did_push {
-                cx.waker().wake_by_ref();
-            }
-
-            Poll::Pending
+                Poll::Pending => Poll::Pending,
+            },
+            None if is_done => Poll::Ready(None),
+            None => Poll::Pending,
         }
     }
 
@@ -139,6 +132,27 @@ mod test {
 
             assert_eq!(all_events, [0, 1, 2, 3]);
             assert!(now.elapsed().as_millis() >= 50 * 4);
+        });
+    }
+
+    #[test]
+    fn awaits_a_source_that_is_not_immediately_ready() {
+        block_on(async {
+            let stream = stream::unfold(0, |count| async move {
+                if count < 3 {
+                    Duration::from_millis(20).into_future().await;
+
+                    Some((count, count + 1))
+                } else {
+                    None
+                }
+            });
+            let all_events = stream
+                .delay_every(|_| Duration::from_millis(10).into_future(), None)
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(all_events, [0, 1, 2]);
         });
     }
 }

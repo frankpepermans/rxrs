@@ -459,7 +459,7 @@ pub trait RxExt: Stream {
     }
 
     /// Ensures that all emitted events are unique.
-    /// Events are required to implement `Hash`.
+    /// Events are required to implement `Eq`, `Hash` and `Clone`.
     ///
     /// Note that this function consumes the stream passed into it and returns a
     /// wrapped version of it.
@@ -482,13 +482,13 @@ pub trait RxExt: Stream {
     fn distinct(self) -> Distinct<Self>
     where
         Self: Sized,
-        Self::Item: Hash,
+        Self::Item: Eq + Hash + Clone,
     {
         assert_stream::<Self::Item, _>(Distinct::new(self))
     }
 
     /// Ensures that all emitted events are unique within immediate sequence.
-    /// Events are required to implement `Hash`.
+    /// Events are required to implement `PartialEq` and `Clone`.
     ///
     /// Note that this function consumes the stream passed into it and returns a
     /// wrapped version of it.
@@ -511,7 +511,7 @@ pub trait RxExt: Stream {
     fn distinct_until_changed(self) -> DistinctUntilChanged<Self>
     where
         Self: Sized,
-        Self::Item: Hash,
+        Self::Item: PartialEq + Clone,
     {
         assert_stream::<Self::Item, _>(DistinctUntilChanged::new(self))
     }

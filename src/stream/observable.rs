@@ -28,13 +28,7 @@ impl<T> Stream for Observable<T> {
     type Item = Event<T>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match self.as_mut().inner.write().unwrap().pop() {
-            Poll::Ready(it) => Poll::Ready(it),
-            Poll::Pending => {
-                cx.waker().wake_by_ref();
-                Poll::Pending
-            }
-        }
+        self.as_mut().inner.write().unwrap().pop(cx)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

@@ -37,7 +37,7 @@ where
     S2: FusedStream,
 {
     fn is_terminated(&self) -> bool {
-        self.stream.is_terminated() || self.sampler.is_terminated()
+        (self.stream.is_terminated() || self.sampler.is_terminated()) && self.latest_event.is_none()
     }
 }
 

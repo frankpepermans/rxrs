@@ -1,5 +1,4 @@
 use std::{
-    hash::{DefaultHasher, Hash, Hasher},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -11,14 +10,13 @@ use futures::{
 use pin_project_lite::pin_project;
 
 pin_project! {
-    /// Stream for the [`pairwise`](RxStreamExt::pairwise) method.
+    /// Stream for the [`distinct_until_changed`](RxStreamExt::distinct_until_changed) method.
     #[must_use = "streams do nothing unless polled"]
     pub struct DistinctUntilChanged<S: Stream>
      {
         #[pin]
         stream: Fuse<S>,
-        #[pin]
-        previous: Option<u64>,
+        previous: Option<S::Item>,
     }
 }
 
@@ -34,7 +32,7 @@ impl<S: Stream> DistinctUntilChanged<S> {
 impl<S> FusedStream for DistinctUntilChanged<S>
 where
     S: FusedStream,
-    S::Item: Hash,
+    S::Item: PartialEq + Clone,
 {
     fn is_terminated(&self) -> bool {
         self.stream.is_terminated()
@@ -44,37 +42,25 @@ where
 impl<S> Stream for DistinctUntilChanged<S>
 where
     S: Stream,
-    S::Item: Hash,
+    S::Item: PartialEq + Clone,
 {
     type Item = S::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        match this.stream.poll_next(cx) {
-            Poll::Ready(Some(event)) => {
-                let mut hasher = DefaultHasher::new();
+        loop {
+            match this.stream.as_mut().poll_next(cx) {
+                Poll::Ready(Some(event)) => {
+                    if this.previous.as_ref() != Some(&event) {
+                        *this.previous = Some(event.clone());
 
-                event.hash(&mut hasher);
-
-                let hash = hasher.finish();
-                let should_emit = match this.previous.as_ref().get_ref() {
-                    Some(it) => *it != hash,
-                    None => true,
-                };
-
-                if should_emit {
-                    this.previous.set(Some(hasher.finish()));
-
-                    Poll::Ready(Some(event))
-                } else {
-                    cx.waker().wake_by_ref();
-
-                    Poll::Pending
+                        return Poll::Ready(Some(event));
+                    }
                 }
+                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Pending => return Poll::Pending,
             }
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Pending => Poll::Pending,
         }
     }
 
@@ -99,6 +85,16 @@ mod test {
             let all_events = stream.distinct_until_changed().collect::<Vec<_>>().await;
 
             assert_eq!(all_events, [1, 2, 3, 4, 5]);
+        });
+    }
+
+    #[test]
+    fn accepts_events_that_are_not_hashable() {
+        block_on(async {
+            let stream = stream::iter([1.0f64, 1.0, 2.5, 2.5, 1.0]);
+            let all_events = stream.distinct_until_changed().collect::<Vec<_>>().await;
+
+            assert_eq!(all_events, [1.0, 2.5, 1.0]);
         });
     }
 }

@@ -41,7 +41,7 @@ where
     Fut: Future,
 {
     fn is_terminated(&self) -> bool {
-        self.stream.is_terminated()
+        self.stream.is_terminated() && self.candidate_event.is_none()
     }
 }
 
@@ -55,40 +55,34 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        if let Some(interval) = this.current_interval.as_mut().as_pin_mut() {
-            match select(interval, this.stream.next()).poll_unpin(cx) {
-                Poll::Ready(it) => match it {
-                    Either::Left(_) => {
-                        this.current_interval.set(None);
+        loop {
+            if let Some(interval) = this.current_interval.as_mut().as_pin_mut() {
+                match select(interval, this.stream.next()).poll_unpin(cx) {
+                    Poll::Ready(it) => match it {
+                        Either::Left(_) => {
+                            this.current_interval.set(None);
 
-                        Poll::Ready(this.candidate_event.take())
-                    }
-                    Either::Right((it, mut interval)) => match it {
-                        Some(item) => {
-                            interval.set((this.f)(&item));
-                            *this.candidate_event = Some(item);
-
-                            cx.waker().wake_by_ref();
-
-                            Poll::Pending
+                            return Poll::Ready(this.candidate_event.take());
                         }
-                        None => Poll::Ready(this.candidate_event.take()),
+                        Either::Right((it, mut interval)) => match it {
+                            Some(item) => {
+                                interval.set((this.f)(&item));
+                                *this.candidate_event = Some(item);
+                            }
+                            None => return Poll::Ready(this.candidate_event.take()),
+                        },
                     },
-                },
-                Poll::Pending => Poll::Pending,
-            }
-        } else {
-            match this.stream.poll_next(cx) {
-                Poll::Ready(Some(item)) => {
-                    this.current_interval.set(Some((this.f)(&item)));
-                    *this.candidate_event = Some(item);
-
-                    cx.waker().wake_by_ref();
-
-                    Poll::Pending
+                    Poll::Pending => return Poll::Pending,
                 }
-                Poll::Ready(None) => Poll::Ready(this.candidate_event.take()),
-                Poll::Pending => Poll::Pending,
+            } else {
+                match this.stream.as_mut().poll_next(cx) {
+                    Poll::Ready(Some(item)) => {
+                        this.current_interval.set(Some((this.f)(&item)));
+                        *this.candidate_event = Some(item);
+                    }
+                    Poll::Ready(None) => return Poll::Ready(this.candidate_event.take()),
+                    Poll::Pending => return Poll::Pending,
+                }
             }
         }
     }

@@ -33,7 +33,7 @@ impl<T> Subject for BehaviorSubject<T> {
         self.is_closed = true;
 
         self.for_each_subscription(|it| {
-            it.write().unwrap().is_done = true;
+            it.write().unwrap().close();
         });
     }
 

@@ -59,11 +59,7 @@ where
                 Poll::Ready(_) => {
                     this.interval.set(None);
                 }
-                Poll::Pending => {
-                    cx.waker().wake_by_ref();
-
-                    return Poll::Pending;
-                }
+                Poll::Pending => return Poll::Pending,
             },
             None => {
                 if !*this.did_delay {

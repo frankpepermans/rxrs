@@ -42,7 +42,7 @@ where
     Fut: Future<Output = bool>,
 {
     fn is_terminated(&self) -> bool {
-        self.stream.is_terminated()
+        self.stream.is_terminated() && self.buffer.is_none()
     }
 }
 
@@ -56,62 +56,52 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        if let Some(interval) = this.current_interval.as_mut().as_pin_mut() {
-            match select(interval, this.stream.next()).poll_unpin(cx) {
-                Poll::Ready(it) => match it {
-                    Either::Left((it, _)) => {
-                        this.current_interval.set(None);
+        loop {
+            if let Some(interval) = this.current_interval.as_mut().as_pin_mut() {
+                match select(interval, this.stream.next()).poll_unpin(cx) {
+                    Poll::Ready(it) => match it {
+                        Either::Left((it, _)) => {
+                            this.current_interval.set(None);
 
-                        if it {
-                            Poll::Ready(this.buffer.take())
-                        } else {
-                            cx.waker().wake_by_ref();
-
-                            Poll::Pending
-                        }
-                    }
-                    Either::Right((it, mut interval)) => match it {
-                        Some(item) => {
-                            interval.set((this.f)(
-                                &item,
-                                this.buffer.as_ref().map(|it| it.len()).unwrap_or_default() + 1,
-                            ));
-
-                            if let Some(it) = this.buffer.as_mut() {
-                                it.push_back(item);
-                            } else {
-                                this.buffer.replace(VecDeque::from_iter([item]));
+                            if it {
+                                return Poll::Ready(this.buffer.take());
                             }
-
-                            cx.waker().wake_by_ref();
-
-                            Poll::Pending
                         }
-                        None => Poll::Ready(this.buffer.take()),
+                        Either::Right((it, mut interval)) => match it {
+                            Some(item) => {
+                                interval.set((this.f)(
+                                    &item,
+                                    this.buffer.as_ref().map(|it| it.len()).unwrap_or_default() + 1,
+                                ));
+
+                                if let Some(it) = this.buffer.as_mut() {
+                                    it.push_back(item);
+                                } else {
+                                    this.buffer.replace(VecDeque::from_iter([item]));
+                                }
+                            }
+                            None => return Poll::Ready(this.buffer.take()),
+                        },
                     },
-                },
-                Poll::Pending => Poll::Pending,
-            }
-        } else {
-            match this.stream.poll_next(cx) {
-                Poll::Ready(Some(item)) => {
-                    this.current_interval.set(Some((this.f)(
-                        &item,
-                        this.buffer.as_ref().map(|it| it.len()).unwrap_or_default() + 1,
-                    )));
-
-                    if let Some(it) = this.buffer.as_mut() {
-                        it.push_back(item);
-                    } else {
-                        this.buffer.replace(VecDeque::from_iter([item]));
-                    }
-
-                    cx.waker().wake_by_ref();
-
-                    Poll::Pending
+                    Poll::Pending => return Poll::Pending,
                 }
-                Poll::Ready(None) => Poll::Ready(this.buffer.take()),
-                Poll::Pending => Poll::Pending,
+            } else {
+                match this.stream.as_mut().poll_next(cx) {
+                    Poll::Ready(Some(item)) => {
+                        this.current_interval.set(Some((this.f)(
+                            &item,
+                            this.buffer.as_ref().map(|it| it.len()).unwrap_or_default() + 1,
+                        )));
+
+                        if let Some(it) = this.buffer.as_mut() {
+                            it.push_back(item);
+                        } else {
+                            this.buffer.replace(VecDeque::from_iter([item]));
+                        }
+                    }
+                    Poll::Ready(None) => return Poll::Ready(this.buffer.take()),
+                    Poll::Pending => return Poll::Pending,
+                }
             }
         }
     }
@@ -128,7 +118,9 @@ where
 
 #[cfg(test)]
 mod test {
-    use futures::{executor::block_on, stream, StreamExt};
+    use std::collections::VecDeque;
+
+    use futures::{executor::block_on, stream, stream::FusedStream, StreamExt};
 
     use crate::RxExt;
 
@@ -144,6 +136,20 @@ mod test {
                 all_events,
                 vec![vec![0, 1, 2], vec![3, 4, 5], vec![6, 7, 8]]
             );
+        });
+    }
+
+    #[test]
+    fn is_not_terminated_while_a_partial_buffer_is_owed() {
+        block_on(async {
+            let mut stream =
+                Box::pin(stream::iter(0..=4).buffer(|_, count| async move { count == 3 }));
+
+            assert_eq!(stream.next().await, Some(VecDeque::from_iter([0, 1, 2])));
+            assert!(!stream.is_terminated());
+
+            assert_eq!(stream.next().await, Some(VecDeque::from_iter([3, 4])));
+            assert!(stream.is_terminated());
         });
     }
 }

@@ -42,7 +42,7 @@ where
     Fut: Future<Output = bool>,
 {
     fn is_terminated(&self) -> bool {
-        self.stream.is_terminated()
+        self.stream.is_terminated() && self.buffer.is_none()
     }
 }
 
@@ -56,62 +56,52 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        if let Some(interval) = this.current_interval.as_mut().as_pin_mut() {
-            match select(interval, this.stream.next()).poll_unpin(cx) {
-                Poll::Ready(it) => match it {
-                    Either::Left((it, _)) => {
-                        this.current_interval.set(None);
+        loop {
+            if let Some(interval) = this.current_interval.as_mut().as_pin_mut() {
+                match select(interval, this.stream.next()).poll_unpin(cx) {
+                    Poll::Ready(it) => match it {
+                        Either::Left((it, _)) => {
+                            this.current_interval.set(None);
 
-                        if it {
-                            Poll::Ready(this.buffer.take().map(stream::iter))
-                        } else {
-                            cx.waker().wake_by_ref();
-
-                            Poll::Pending
-                        }
-                    }
-                    Either::Right((it, mut interval)) => match it {
-                        Some(item) => {
-                            interval.set((this.f)(
-                                &item,
-                                this.buffer.as_ref().map(|it| it.len()).unwrap_or_default() + 1,
-                            ));
-
-                            if let Some(it) = this.buffer.as_mut() {
-                                it.push(item);
-                            } else {
-                                this.buffer.replace(vec![item]);
+                            if it {
+                                return Poll::Ready(this.buffer.take().map(stream::iter));
                             }
-
-                            cx.waker().wake_by_ref();
-
-                            Poll::Pending
                         }
-                        None => Poll::Ready(this.buffer.take().map(stream::iter)),
+                        Either::Right((it, mut interval)) => match it {
+                            Some(item) => {
+                                interval.set((this.f)(
+                                    &item,
+                                    this.buffer.as_ref().map(|it| it.len()).unwrap_or_default() + 1,
+                                ));
+
+                                if let Some(it) = this.buffer.as_mut() {
+                                    it.push(item);
+                                } else {
+                                    this.buffer.replace(vec![item]);
+                                }
+                            }
+                            None => return Poll::Ready(this.buffer.take().map(stream::iter)),
+                        },
                     },
-                },
-                Poll::Pending => Poll::Pending,
-            }
-        } else {
-            match this.stream.poll_next(cx) {
-                Poll::Ready(Some(item)) => {
-                    this.current_interval.set(Some((this.f)(
-                        &item,
-                        this.buffer.as_ref().map(|it| it.len()).unwrap_or_default() + 1,
-                    )));
-
-                    if let Some(it) = this.buffer.as_mut() {
-                        it.push(item);
-                    } else {
-                        this.buffer.replace(vec![item]);
-                    }
-
-                    cx.waker().wake_by_ref();
-
-                    Poll::Pending
+                    Poll::Pending => return Poll::Pending,
                 }
-                Poll::Ready(None) => Poll::Ready(this.buffer.take().map(stream::iter)),
-                Poll::Pending => Poll::Pending,
+            } else {
+                match this.stream.as_mut().poll_next(cx) {
+                    Poll::Ready(Some(item)) => {
+                        this.current_interval.set(Some((this.f)(
+                            &item,
+                            this.buffer.as_ref().map(|it| it.len()).unwrap_or_default() + 1,
+                        )));
+
+                        if let Some(it) = this.buffer.as_mut() {
+                            it.push(item);
+                        } else {
+                            this.buffer.replace(vec![item]);
+                        }
+                    }
+                    Poll::Ready(None) => return Poll::Ready(this.buffer.take().map(stream::iter)),
+                    Poll::Pending => return Poll::Pending,
+                }
             }
         }
     }

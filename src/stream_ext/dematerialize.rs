@@ -50,15 +50,15 @@ impl<S: Stream<Item = Notification<T>>, T> Stream for Dematerialize<S, T> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (a, b) = self.stream.size_hint();
 
-        (a - 1, b.map(|it| it - 1))
+        (a.saturating_sub(1), b.map(|it| it.saturating_sub(1)))
     }
 }
 
 #[cfg(test)]
 mod test {
-    use futures::{executor::block_on, stream, StreamExt};
+    use futures::{executor::block_on, stream, Stream, StreamExt};
 
-    use crate::RxExt;
+    use crate::{Notification, RxExt};
 
     #[test]
     fn smoke() {
@@ -72,5 +72,12 @@ mod test {
 
             assert_eq!(all_events, [1, 2]);
         });
+    }
+
+    #[test]
+    fn size_hint_does_not_underflow_on_an_empty_source() {
+        let stream = stream::empty::<Notification<i32>>().dematerialize();
+
+        assert_eq!(stream.size_hint(), (0, Some(0)));
     }
 }

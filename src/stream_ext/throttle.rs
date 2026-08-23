@@ -48,7 +48,7 @@ where
     Fut: Future,
 {
     fn is_terminated(&self) -> bool {
-        self.stream.is_terminated()
+        self.stream.is_terminated() && self.trailing.is_none()
     }
 }
 
@@ -61,41 +61,40 @@ where
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
-        let is_in_interval = this
-            .current_interval
-            .as_mut()
-            .as_pin_mut()
-            .map(|it| it.poll(cx).is_pending())
-            .unwrap_or(false);
 
-        if !is_in_interval && this.current_interval.is_some() {
-            this.current_interval.set(None);
+        loop {
+            let is_in_interval = this
+                .current_interval
+                .as_mut()
+                .as_pin_mut()
+                .map(|it| it.poll(cx).is_pending())
+                .unwrap_or(false);
 
-            if matches!(this.config, ThrottleConfig::All | ThrottleConfig::Trailing) {
-                if let Some(trailing) = this.trailing.take() {
-                    return Poll::Ready(Some(trailing));
-                }
-            }
-        }
+            if !is_in_interval && this.current_interval.is_some() {
+                this.current_interval.set(None);
 
-        match this.stream.poll_next(cx) {
-            Poll::Ready(Some(item)) => {
-                if is_in_interval {
-                    this.trailing.replace(item);
-                } else {
-                    this.current_interval.set(Some((this.f)(&item)));
-
-                    if matches!(this.config, ThrottleConfig::All | ThrottleConfig::Leading) {
-                        return Poll::Ready(Some(item));
+                if matches!(this.config, ThrottleConfig::All | ThrottleConfig::Trailing) {
+                    if let Some(trailing) = this.trailing.take() {
+                        return Poll::Ready(Some(trailing));
                     }
                 }
-
-                cx.waker().wake_by_ref();
-
-                Poll::Pending
             }
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Pending => Poll::Pending,
+
+            match this.stream.as_mut().poll_next(cx) {
+                Poll::Ready(Some(item)) => {
+                    if is_in_interval {
+                        this.trailing.replace(item);
+                    } else {
+                        this.current_interval.set(Some((this.f)(&item)));
+
+                        if matches!(this.config, ThrottleConfig::All | ThrottleConfig::Leading) {
+                            return Poll::Ready(Some(item));
+                        }
+                    }
+                }
+                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Pending => return Poll::Pending,
+            }
         }
     }
 

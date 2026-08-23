@@ -49,20 +49,18 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        match this.stream.as_mut().poll_next(cx) {
-            Poll::Ready(Some(event)) => {
-                let next = Arc::new(event);
+        loop {
+            match this.stream.as_mut().poll_next(cx) {
+                Poll::Ready(Some(event)) => {
+                    let next = Arc::new(event);
 
-                if let Some(prev) = this.previous.replace(Arc::clone(&next)) {
-                    Poll::Ready(Some((EventLite(prev), EventLite(next))))
-                } else {
-                    cx.waker().wake_by_ref();
-
-                    Poll::Pending
+                    if let Some(prev) = this.previous.replace(Arc::clone(&next)) {
+                        return Poll::Ready(Some((EventLite(prev), EventLite(next))));
+                    }
                 }
+                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Pending => return Poll::Pending,
             }
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Pending => Poll::Pending,
         }
     }
 

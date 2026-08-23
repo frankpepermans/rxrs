@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    hash::{DefaultHasher, Hash, Hasher},
+    hash::Hash,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -12,14 +12,13 @@ use futures::{
 use pin_project_lite::pin_project;
 
 pin_project! {
-    /// Stream for the [`pairwise`](RxStreamExt::pairwise) method.
+    /// Stream for the [`distinct`](RxStreamExt::distinct) method.
     #[must_use = "streams do nothing unless polled"]
     pub struct Distinct<S: Stream>
      {
         #[pin]
         stream: Fuse<S>,
-        #[pin]
-        seen: HashSet<u64>,
+        seen: HashSet<S::Item>,
     }
 }
 
@@ -35,7 +34,7 @@ impl<S: Stream> Distinct<S> {
 impl<S> FusedStream for Distinct<S>
 where
     S: FusedStream,
-    S::Item: Hash,
+    S::Item: Eq + Hash + Clone,
 {
     fn is_terminated(&self) -> bool {
         self.stream.is_terminated()
@@ -45,31 +44,23 @@ where
 impl<S> Stream for Distinct<S>
 where
     S: Stream,
-    S::Item: Hash,
+    S::Item: Eq + Hash + Clone,
 {
     type Item = S::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        match this.stream.poll_next(cx) {
-            Poll::Ready(Some(event)) => {
-                let mut hasher = DefaultHasher::new();
-
-                event.hash(&mut hasher);
-
-                let should_emit = this.seen.as_mut().get_mut().insert(hasher.finish());
-
-                if should_emit {
-                    Poll::Ready(Some(event))
-                } else {
-                    cx.waker().wake_by_ref();
-
-                    Poll::Pending
+        loop {
+            match this.stream.as_mut().poll_next(cx) {
+                Poll::Ready(Some(event)) => {
+                    if this.seen.insert(event.clone()) {
+                        return Poll::Ready(Some(event));
+                    }
                 }
+                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Pending => return Poll::Pending,
             }
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Pending => Poll::Pending,
         }
     }
 
@@ -94,6 +85,16 @@ mod test {
             let all_events = stream.distinct().collect::<Vec<_>>().await;
 
             assert_eq!(all_events, [1, 2, 3, 4, 5]);
+        });
+    }
+
+    #[test]
+    fn compares_values() {
+        block_on(async {
+            let stream = stream::iter(["a", "b", "a", "c", "b"]);
+            let all_events = stream.distinct().collect::<Vec<_>>().await;
+
+            assert_eq!(all_events, ["a", "b", "c"]);
         });
     }
 }

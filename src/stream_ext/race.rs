@@ -64,14 +64,19 @@ impl<S1: Stream<Item = T>, S2: Stream<Item = T>, T> Stream for Race<S1, S2, T> {
                 let left = this.left.poll_next(cx);
                 let right = this.right.poll_next(cx);
 
-                if left.is_ready() {
-                    *this.winner = Winner::Left;
-                    left
-                } else if right.is_ready() {
-                    *this.winner = Winner::Right;
-                    right
-                } else {
-                    Poll::Pending
+                match (left, right) {
+                    (Poll::Ready(Some(it)), _) => {
+                        *this.winner = Winner::Left;
+
+                        Poll::Ready(Some(it))
+                    }
+                    (_, Poll::Ready(Some(it))) => {
+                        *this.winner = Winner::Right;
+
+                        Poll::Ready(Some(it))
+                    }
+                    (Poll::Ready(None), Poll::Ready(None)) => Poll::Ready(None),
+                    _ => Poll::Pending,
                 }
             }
         }
@@ -115,6 +120,32 @@ mod test {
             let all_events = slow_stream.race(fast_stream).collect::<Vec<_>>().await;
 
             assert_eq!(all_events, ["fast"]);
+        });
+    }
+
+    #[test]
+    fn completing_without_emitting_does_not_win() {
+        block_on(async {
+            let all_events = stream::empty::<&str>()
+                .race(stream::iter(["value"]))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(all_events, ["value"]);
+
+            let all_events = stream::iter(["value"])
+                .race(stream::empty::<&str>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(all_events, ["value"]);
+
+            let all_events = stream::empty::<&str>()
+                .race(stream::empty::<&str>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(all_events, [] as [&str; 0]);
         });
     }
 }
