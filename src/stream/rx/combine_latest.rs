@@ -89,8 +89,8 @@ macro_rules! combine_latest {
                     } else if $(
                         (this.[<$stream:lower>].is_terminated() && this.[<$type:lower>].is_none())
                     )||+ {
-                        // a source that completed without ever emitting can
-                        // never contribute to a combination
+                        // a source that ended without ever emitting can never
+                        // contribute to a combination
                         Poll::Ready(None)
                     } else if $(this.[<$stream:lower>].is_terminated())&&+ {
                         Poll::Ready(None)
@@ -138,29 +138,26 @@ combine_latest!(CombineLatest7;S1,S2,S3,S4,S5,S6,S7;T1,T2,T3,T4,T5,T6,T7);
 combine_latest!(CombineLatest8;S1,S2,S3,S4,S5,S6,S7,S8;T1,T2,T3,T4,T5,T6,T7,T8);
 combine_latest!(CombineLatest9;S1,S2,S3,S4,S5,S6,S7,S8,S9;T1,T2,T3,T4,T5,T6,T7,T8,T9);
 
-#[test]
-fn test() {
-    use futures::executor::block_on;
-    use futures::stream::{self};
-    use futures::StreamExt;
-
-    let s1 = stream::iter([1, 2, 3]);
-    let s2 = stream::iter([6, 7, 8, 9]);
-    let s3 = stream::iter([0]);
-    let stream = CombineLatest3::new(s1, s2, s3);
-
-    block_on(async {
-        let res = stream.collect::<Vec<_>>().await;
-
-        assert_eq!(res, [(1, 6, 0), (2, 7, 0), (3, 8, 0), (3, 9, 0),]);
-    });
-}
-
 #[cfg(test)]
 mod test {
     use futures::{executor::block_on, stream, StreamExt};
 
     use crate::{test_util::stuttering, CombineLatest2, CombineLatest3, CombineLatest9};
+
+    #[test]
+    fn re_emits_on_every_update_once_all_sources_have_a_value() {
+        block_on(async {
+            let events = CombineLatest3::new(
+                stream::iter([1, 2, 3]),
+                stream::iter([6, 7, 8, 9]),
+                stream::iter([0]),
+            )
+            .collect::<Vec<_>>()
+            .await;
+
+            assert_eq!(events, [(1, 6, 0), (2, 7, 0), (3, 8, 0), (3, 9, 0)]);
+        });
+    }
 
     #[test]
     fn pairs_the_latest_value_of_each_source() {

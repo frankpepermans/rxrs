@@ -117,29 +117,26 @@ zip!(Zip7;S1,S2,S3,S4,S5,S6,S7;T1,T2,T3,T4,T5,T6,T7);
 zip!(Zip8;S1,S2,S3,S4,S5,S6,S7,S8;T1,T2,T3,T4,T5,T6,T7,T8);
 zip!(Zip9;S1,S2,S3,S4,S5,S6,S7,S8,S9;T1,T2,T3,T4,T5,T6,T7,T8,T9);
 
-#[test]
-fn test() {
-    use futures::executor::block_on;
-    use futures::stream::{self};
-    use futures::StreamExt;
-
-    let s1 = stream::iter([1, 2, 3]);
-    let s2 = stream::iter([6, 7, 8, 9]);
-    let s3 = stream::iter([10, 11, 12]);
-    let stream = Zip3::new(s1, s2, s3);
-
-    block_on(async {
-        let res = stream.collect::<Vec<_>>().await;
-
-        assert_eq!(res, [(1, 6, 10), (2, 7, 11), (3, 8, 12),]);
-    });
-}
-
 #[cfg(test)]
 mod test {
     use futures::{executor::block_on, stream, StreamExt};
 
     use crate::{test_util::stuttering, Zip2, Zip3, Zip9};
+
+    #[test]
+    fn stops_at_the_shortest_of_three_sources() {
+        block_on(async {
+            let events = Zip3::new(
+                stream::iter([1, 2, 3]),
+                stream::iter([6, 7, 8, 9]),
+                stream::iter([10, 11, 12]),
+            )
+            .collect::<Vec<_>>()
+            .await;
+
+            assert_eq!(events, [(1, 6, 10), (2, 7, 11), (3, 8, 12)]);
+        });
+    }
 
     #[test]
     fn pairs_events_by_position() {

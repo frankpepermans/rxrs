@@ -16,7 +16,7 @@ pin_project! {
         #[pin]
         stream: Fuse<S>,
         #[pin]
-        switch_stream: Option<Fuse<F::Output>>,
+        switch_stream: Option<Fuse<St>>,
         f: F,
     }
 }

@@ -46,9 +46,9 @@ impl<S: Stream> Stream for StartWith<S> {
         if let Some(value) = this.value.as_mut() {
             if let Some(event) = value.pop_front() {
                 return Poll::Ready(Some(event));
-            } else {
-                *this.value = None;
             }
+
+            *this.value = None;
         }
 
         this.stream.as_mut().poll_next(cx)

@@ -1,4 +1,5 @@
 use std::{
+    marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -9,11 +10,12 @@ use pin_project_lite::pin_project;
 use crate::Notification;
 
 pin_project! {
-    /// Stream for the [`start_with`](RxStreamExt::start_with) method.
+    /// Stream for the [`dematerialize`](RxStreamExt::dematerialize) method.
     #[must_use = "streams do nothing unless polled"]
     pub struct Dematerialize<S: Stream<Item = Notification<T>>, T> {
         #[pin]
         stream: Fuse<S>,
+        item: PhantomData<T>,
     }
 }
 
@@ -21,6 +23,7 @@ impl<S: Stream<Item = Notification<T>>, T> Dematerialize<S, T> {
     pub(crate) fn new(stream: S) -> Self {
         Self {
             stream: stream.fuse(),
+            item: PhantomData,
         }
     }
 }

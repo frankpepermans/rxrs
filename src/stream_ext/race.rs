@@ -18,7 +18,7 @@ enum Winner {
 pin_project! {
     /// Stream for the [`race`](RxStreamExt::race) method.
     #[must_use = "streams do nothing unless polled"]
-    pub struct Race<S1: Stream<Item = T>, S2: Stream<Item = T>, T> {
+    pub struct Race<S1: Stream, S2: Stream<Item = S1::Item>> {
         #[pin]
         left: Fuse<S1>,
         #[pin]
@@ -27,7 +27,7 @@ pin_project! {
     }
 }
 
-impl<S1: Stream<Item = T>, S2: Stream<Item = T>, T> Race<S1, S2, T> {
+impl<S1: Stream, S2: Stream<Item = S1::Item>> Race<S1, S2> {
     pub(crate) fn new(left: S1, right: S2) -> Self {
         Self {
             left: left.fuse(),
@@ -37,10 +37,10 @@ impl<S1: Stream<Item = T>, S2: Stream<Item = T>, T> Race<S1, S2, T> {
     }
 }
 
-impl<S1: Stream<Item = T>, S2: Stream<Item = T>, T> FusedStream for Race<S1, S2, T>
+impl<S1, S2> FusedStream for Race<S1, S2>
 where
     S1: FusedStream,
-    S2: FusedStream,
+    S2: FusedStream<Item = S1::Item>,
 {
     fn is_terminated(&self) -> bool {
         match &self.winner {
@@ -51,8 +51,8 @@ where
     }
 }
 
-impl<S1: Stream<Item = T>, S2: Stream<Item = T>, T> Stream for Race<S1, S2, T> {
-    type Item = T;
+impl<S1: Stream, S2: Stream<Item = S1::Item>> Stream for Race<S1, S2> {
+    type Item = S1::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();

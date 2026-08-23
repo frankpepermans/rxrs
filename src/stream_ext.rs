@@ -69,7 +69,7 @@ pub trait RxExt: Stream {
     ///
     /// #
     /// ```
-    fn race<S: Stream<Item = Self::Item>>(self, other: S) -> Race<Self, S, Self::Item>
+    fn race<S: Stream<Item = Self::Item>>(self, other: S) -> Race<Self, S>
     where
         Self: Sized,
     {
