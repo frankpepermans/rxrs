@@ -2,6 +2,9 @@ pub mod stream;
 pub mod stream_ext;
 pub mod subject;
 
+#[cfg(test)]
+pub(crate) mod test_util;
+
 pub use crate::{
     stream::controller::*,
     stream::event::*,

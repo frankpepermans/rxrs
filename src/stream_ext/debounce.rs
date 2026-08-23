@@ -138,3 +138,68 @@ mod test {
         })
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+    use futures_time::{future::IntoFuture, time::Duration};
+
+    use crate::RxExt;
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let events = stream::empty::<i32>()
+                .debounce(|_| Duration::from_millis(10).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn a_burst_collapses_to_its_final_event() {
+        block_on(async {
+            let events = stream::iter(0..=9)
+                .debounce(|_| Duration::from_millis(20).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [9]);
+        });
+    }
+
+    #[test]
+    fn a_lone_event_is_always_emitted() {
+        block_on(async {
+            let events = stream::iter([1])
+                .debounce(|_| Duration::from_millis(10).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1]);
+        });
+    }
+
+    #[test]
+    fn events_spaced_wider_than_the_window_all_survive() {
+        block_on(async {
+            let source = stream::unfold(0, |count| async move {
+                if count < 3 {
+                    Duration::from_millis(60).into_future().await;
+
+                    Some((count, count + 1))
+                } else {
+                    None
+                }
+            });
+            let events = source
+                .debounce(|_| Duration::from_millis(20).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [0, 1, 2]);
+        });
+    }
+}

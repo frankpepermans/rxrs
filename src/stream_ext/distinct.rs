@@ -98,3 +98,61 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{test_util::stuttering, RxExt};
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let events = stream::empty::<i32>().distinct().collect::<Vec<_>>().await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn a_single_event_is_emitted() {
+        block_on(async {
+            let events = stream::iter([1]).distinct().collect::<Vec<_>>().await;
+
+            assert_eq!(events, [1]);
+        });
+    }
+
+    #[test]
+    fn an_all_duplicate_source_emits_once() {
+        block_on(async {
+            let events = stream::iter([7; 32]).distinct().collect::<Vec<_>>().await;
+
+            assert_eq!(events, [7]);
+        });
+    }
+
+    #[test]
+    fn survives_a_source_that_is_not_always_ready() {
+        block_on(async {
+            let events = stuttering([1, 1, 2, 3, 2])
+                .distinct()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 2, 3]);
+        });
+    }
+
+    #[test]
+    fn treats_unequal_values_as_distinct() {
+        block_on(async {
+            let events = stream::iter([(1, "a"), (1, "b"), (1, "a")])
+                .distinct()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [(1, "a"), (1, "b")]);
+        });
+    }
+}

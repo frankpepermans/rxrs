@@ -134,3 +134,90 @@ fn test() {
         assert_eq!(res, [(1, 6, 10), (2, 7, 11), (3, 8, 12),]);
     });
 }
+
+#[cfg(test)]
+mod test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{test_util::stuttering, Zip2, Zip3, Zip9};
+
+    #[test]
+    fn pairs_events_by_position() {
+        block_on(async {
+            let events = Zip2::new(stream::iter(1..=3), stream::iter(7..=9))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [(1, 7), (2, 8), (3, 9)]);
+        });
+    }
+
+    #[test]
+    fn stops_at_the_shortest_source() {
+        block_on(async {
+            let events = Zip2::new(stream::iter(1..=5), stream::iter(7..=8))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [(1, 7), (2, 8)]);
+        });
+    }
+
+    #[test]
+    fn an_empty_source_yields_nothing() {
+        block_on(async {
+            let events = Zip2::new(stream::iter(1..=3), stream::empty::<i32>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn zips_three_sources() {
+        block_on(async {
+            let events = Zip3::new(
+                stream::iter([1, 2]),
+                stream::iter(["a", "b"]),
+                stream::iter([true, false]),
+            )
+            .collect::<Vec<_>>()
+            .await;
+
+            assert_eq!(events, [(1, "a", true), (2, "b", false)]);
+        });
+    }
+
+    #[test]
+    fn zips_nine_sources() {
+        block_on(async {
+            let events = Zip9::new(
+                stream::iter([1]),
+                stream::iter([2]),
+                stream::iter([3]),
+                stream::iter([4]),
+                stream::iter([5]),
+                stream::iter([6]),
+                stream::iter([7]),
+                stream::iter([8]),
+                stream::iter([9]),
+            )
+            .collect::<Vec<_>>()
+            .await;
+
+            assert_eq!(events, [(1, 2, 3, 4, 5, 6, 7, 8, 9)]);
+        });
+    }
+
+    #[test]
+    fn survives_sources_that_are_not_always_ready() {
+        block_on(async {
+            let events = Zip2::new(stuttering(1..=3), stuttering(7..=9))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [(1, 7), (2, 8), (3, 9)]);
+        });
+    }
+}

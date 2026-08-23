@@ -98,3 +98,58 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{test_util::stuttering, RxExt};
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let events = stream::empty::<i32>()
+                .distinct_until_changed()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn a_single_event_is_emitted() {
+        block_on(async {
+            let events = stream::iter([1])
+                .distinct_until_changed()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1]);
+        });
+    }
+
+    #[test]
+    fn a_value_may_repeat_once_something_else_intervenes() {
+        block_on(async {
+            let events = stream::iter([1, 1, 2, 2, 1, 1])
+                .distinct_until_changed()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 2, 1]);
+        });
+    }
+
+    #[test]
+    fn survives_a_source_that_is_not_always_ready() {
+        block_on(async {
+            let events = stuttering([1, 1, 2, 2, 3])
+                .distinct_until_changed()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 2, 3]);
+        });
+    }
+}

@@ -69,3 +69,128 @@ impl<T> Controller<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+    use std::task::{Wake, Waker};
+
+    use super::*;
+
+    struct CountingWaker(AtomicUsize);
+
+    impl Wake for CountingWaker {
+        fn wake(self: Arc<Self>) {
+            self.0.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    fn counting_waker() -> (Arc<CountingWaker>, Waker) {
+        let inner = Arc::new(CountingWaker(AtomicUsize::new(0)));
+
+        (Arc::clone(&inner), Waker::from(inner))
+    }
+
+    #[test]
+    fn pops_in_order() {
+        let (_, waker) = counting_waker();
+        let cx = Context::from_waker(&waker);
+        let mut controller = Controller::new();
+
+        controller.push(1);
+        controller.push(2);
+
+        assert_eq!(controller.len(), 2);
+        assert_eq!(controller.pop(&cx), Poll::Ready(Some(1)));
+        assert_eq!(controller.pop(&cx), Poll::Ready(Some(2)));
+        assert_eq!(controller.pop(&cx), Poll::Pending);
+    }
+
+    #[test]
+    fn an_empty_closed_controller_is_done() {
+        let (_, waker) = counting_waker();
+        let cx = Context::from_waker(&waker);
+        let mut controller = Controller::<i32>::new();
+
+        controller.close();
+
+        assert_eq!(controller.pop(&cx), Poll::Ready(None));
+    }
+
+    #[test]
+    fn a_closed_controller_drains_before_completing() {
+        let (_, waker) = counting_waker();
+        let cx = Context::from_waker(&waker);
+        let mut controller = Controller::new();
+
+        controller.push(1);
+        controller.close();
+
+        assert_eq!(controller.pop(&cx), Poll::Ready(Some(1)));
+        assert_eq!(controller.pop(&cx), Poll::Ready(None));
+    }
+
+    #[test]
+    fn a_push_wakes_a_parked_reader() {
+        let (counter, waker) = counting_waker();
+        let cx = Context::from_waker(&waker);
+        let mut controller = Controller::new();
+
+        assert_eq!(controller.pop(&cx), Poll::Pending);
+        assert_eq!(counter.0.load(Ordering::Relaxed), 0);
+
+        controller.push(1);
+
+        assert_eq!(counter.0.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn a_close_wakes_a_parked_reader() {
+        let (counter, waker) = counting_waker();
+        let cx = Context::from_waker(&waker);
+        let mut controller = Controller::<i32>::new();
+
+        assert_eq!(controller.pop(&cx), Poll::Pending);
+
+        controller.close();
+
+        assert_eq!(counter.0.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn a_push_without_a_parked_reader_wakes_nobody() {
+        let (counter, waker) = counting_waker();
+        let cx = Context::from_waker(&waker);
+        let mut controller = Controller::new();
+
+        controller.push(1);
+
+        assert_eq!(counter.0.load(Ordering::Relaxed), 0);
+        assert_eq!(controller.pop(&cx), Poll::Ready(Some(1)));
+        assert_eq!(counter.0.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn only_the_most_recent_waker_is_woken() {
+        let (first, first_waker) = counting_waker();
+        let (second, second_waker) = counting_waker();
+        let mut controller = Controller::new();
+
+        assert_eq!(
+            controller.pop(&Context::from_waker(&first_waker)),
+            Poll::Pending
+        );
+        assert_eq!(
+            controller.pop(&Context::from_waker(&second_waker)),
+            Poll::Pending
+        );
+
+        controller.push(1);
+
+        assert_eq!(first.0.load(Ordering::Relaxed), 0);
+        assert_eq!(second.0.load(Ordering::Relaxed), 1);
+    }
+}

@@ -81,3 +81,75 @@ mod test {
         assert_eq!(stream.size_hint(), (0, Some(0)));
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{test_util::stuttering, Notification, RxExt};
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let events = stream::empty::<Notification<i32>>()
+                .dematerialize()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn a_completion_event_ends_the_stream_early() {
+        block_on(async {
+            let events = stream::iter([
+                Notification::Next(1),
+                Notification::Complete,
+                Notification::Next(2),
+            ])
+            .dematerialize()
+            .collect::<Vec<_>>()
+            .await;
+
+            assert_eq!(events, [1]);
+        });
+    }
+
+    #[test]
+    fn a_source_without_a_completion_event_still_ends() {
+        block_on(async {
+            let events = stream::iter([Notification::Next(1), Notification::Next(2)])
+                .dematerialize()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 2]);
+        });
+    }
+
+    #[test]
+    fn survives_a_source_that_is_not_always_ready() {
+        block_on(async {
+            let events = stuttering([Notification::Next(1), Notification::Complete])
+                .dematerialize()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1]);
+        });
+    }
+
+    #[test]
+    fn round_trips_with_materialize() {
+        block_on(async {
+            let events = stream::iter(0..=3)
+                .materialize()
+                .dematerialize()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [0, 1, 2, 3]);
+        });
+    }
+}

@@ -149,3 +149,58 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{
+        test_util::{never, stuttering},
+        RxExt,
+    };
+
+    #[test]
+    fn the_first_stream_to_emit_wins_every_later_event() {
+        block_on(async {
+            let events = stream::iter([1, 2, 3])
+                .race(stream::iter([4, 5, 6]))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 2, 3]);
+        });
+    }
+
+    #[test]
+    fn the_loser_is_never_emitted_even_when_it_becomes_ready() {
+        block_on(async {
+            let events = stuttering([1, 2])
+                .race(stream::iter([9]))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [9]);
+        });
+    }
+
+    #[test]
+    fn a_stream_that_never_emits_never_wins() {
+        block_on(async {
+            let events = never().race(stuttering([1, 2])).collect::<Vec<_>>().await;
+
+            assert_eq!(events, [1, 2]);
+        });
+    }
+
+    #[test]
+    fn racing_two_empty_streams_completes_empty() {
+        block_on(async {
+            let events = stream::empty::<i32>()
+                .race(stream::empty())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+}

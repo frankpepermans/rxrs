@@ -167,3 +167,117 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod broadcast_test {
+    use futures::{executor::block_on, StreamExt};
+
+    use crate::{PublishSubject, Subject};
+
+    #[test]
+    fn every_subscriber_receives_every_event() {
+        block_on(async {
+            let mut subject = PublishSubject::new();
+            let (a, b, c) = (
+                subject.subscribe(),
+                subject.subscribe(),
+                subject.subscribe(),
+            );
+
+            subject.next(1);
+            subject.next(2);
+            subject.close();
+
+            assert_eq!(a.map(|it| *it).collect::<Vec<_>>().await, [1, 2]);
+            assert_eq!(b.map(|it| *it).collect::<Vec<_>>().await, [1, 2]);
+            assert_eq!(c.map(|it| *it).collect::<Vec<_>>().await, [1, 2]);
+        });
+    }
+
+    #[test]
+    fn a_subscriber_only_receives_events_published_after_it_subscribed() {
+        block_on(async {
+            let mut subject = PublishSubject::new();
+            let early = subject.subscribe();
+
+            subject.next(1);
+
+            let late = subject.subscribe();
+
+            subject.next(2);
+            subject.close();
+
+            assert_eq!(early.map(|it| *it).collect::<Vec<_>>().await, [1, 2]);
+            assert_eq!(late.map(|it| *it).collect::<Vec<_>>().await, [2]);
+        });
+    }
+
+    #[test]
+    fn subscribing_to_a_closed_subject_yields_an_empty_stream() {
+        block_on(async {
+            let mut subject = PublishSubject::new();
+
+            subject.next(1);
+            subject.close();
+
+            let observable = subject.subscribe();
+
+            assert_eq!(observable.map(|it| *it).collect::<Vec<_>>().await, []);
+        });
+    }
+
+    #[test]
+    fn dropping_a_subscriber_removes_its_subscription() {
+        let mut subject = PublishSubject::new();
+        let a = subject.subscribe();
+        let b = subject.subscribe();
+
+        assert_eq!(subject.subscriptions.len(), 2);
+
+        drop(b);
+        subject.next(1);
+
+        assert_eq!(subject.subscriptions.len(), 1);
+
+        drop(a);
+        subject.next(2);
+
+        assert_eq!(subject.subscriptions.len(), 0);
+    }
+
+    #[test]
+    fn closing_twice_is_harmless() {
+        block_on(async {
+            let mut subject = PublishSubject::new();
+            let observable = subject.subscribe();
+
+            subject.next(1);
+            subject.close();
+            subject.close();
+
+            assert_eq!(observable.map(|it| *it).collect::<Vec<_>>().await, [1]);
+        });
+    }
+
+    #[test]
+    fn a_subject_without_subscribers_accepts_events() {
+        let mut subject = PublishSubject::new();
+
+        subject.next(1);
+        subject.next(2);
+        subject.close();
+    }
+
+    #[test]
+    fn events_are_shared_between_subscribers() {
+        let mut subject = PublishSubject::new();
+        let mut a = subject.subscribe();
+        let mut b = subject.subscribe();
+
+        subject.next(vec![1, 2, 3]);
+
+        let (a, b) = block_on(async { (a.next().await.unwrap(), b.next().await.unwrap()) });
+
+        assert!(std::ptr::eq(a.borrow_value(), b.borrow_value()));
+    }
+}

@@ -107,3 +107,74 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{test_util::stuttering, RxExt};
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let events = stream::empty::<i32>()
+                .switch_map(|it| stream::iter([it]))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn an_inner_stream_that_is_empty_contributes_nothing() {
+        block_on(async {
+            let events = stream::iter([1, 2])
+                .switch_map(|_| stream::empty::<i32>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn the_final_inner_stream_is_drained_in_full() {
+        block_on(async {
+            let events = stream::iter([1])
+                .switch_map(|it| stream::iter([it, it * 10, it * 100]))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 10, 100]);
+        });
+    }
+
+    /// A source that pauses between events gives each inner stream time to
+    /// drain, so nothing is dropped by the switch.
+    #[test]
+    fn a_paused_source_lets_every_inner_stream_drain() {
+        block_on(async {
+            let events = stuttering([1, 2])
+                .switch_map(|it| stream::iter([it, it * 10]))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 10, 2, 20]);
+        });
+    }
+
+    /// An always-ready source outruns its inner streams, so each is cut short
+    /// by the next switch.
+    #[test]
+    fn an_eager_source_cuts_each_inner_stream_short() {
+        block_on(async {
+            let events = stream::iter([1, 2])
+                .switch_map(|it| stream::iter([it, it * 10]))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 2, 20]);
+        });
+    }
+}

@@ -156,3 +156,64 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+    use futures_time::{future::IntoFuture, time::Duration};
+
+    use crate::{test_util::stuttering, RxExt};
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let events = stream::empty::<i32>()
+                .delay_every(|_| Duration::from_millis(10).into_future(), None)
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn every_event_is_emitted_in_order() {
+        block_on(async {
+            let events = stream::iter(0..=4)
+                .delay_every(|_| Duration::from_millis(5).into_future(), None)
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [0, 1, 2, 3, 4]);
+        });
+    }
+
+    #[test]
+    fn survives_a_source_that_is_not_always_ready() {
+        block_on(async {
+            let events = stuttering(0..=3)
+                .delay_every(|_| Duration::from_millis(5).into_future(), None)
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [0, 1, 2, 3]);
+        });
+    }
+
+    #[test]
+    fn a_bounded_buffer_drops_the_oldest_pending_events() {
+        block_on(async {
+            let events = stream::iter(0..=9)
+                .delay_every(|_| Duration::from_millis(5).into_future(), Some(2))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert!(events.len() <= 10);
+            assert!(
+                events.windows(2).all(|it| it[0] < it[1]),
+                "events arrived out of order: {events:?}"
+            );
+            assert_eq!(events.last(), Some(&9));
+        });
+    }
+}

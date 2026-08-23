@@ -105,3 +105,66 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{test_util::stuttering, RxExt};
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let events = stream::empty::<i32>().pairwise().collect::<Vec<_>>().await;
+
+            assert_eq!(events.len(), 0);
+        });
+    }
+
+    #[test]
+    fn a_single_event_has_nothing_to_pair_with() {
+        block_on(async {
+            let events = stream::iter([1]).pairwise().collect::<Vec<_>>().await;
+
+            assert_eq!(events.len(), 0);
+        });
+    }
+
+    #[test]
+    fn two_events_form_one_pair() {
+        block_on(async {
+            let events = stream::iter([1, 2])
+                .pairwise()
+                .map(|(a, b)| (*a, *b))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [(1, 2)]);
+        });
+    }
+
+    #[test]
+    fn each_event_appears_as_both_halves_of_a_pair() {
+        block_on(async {
+            let events = stream::iter([1, 2, 3]).pairwise().collect::<Vec<_>>().await;
+
+            assert!(std::ptr::eq(
+                events[0].1.borrow_value(),
+                events[1].0.borrow_value()
+            ));
+        });
+    }
+
+    #[test]
+    fn survives_a_source_that_is_not_always_ready() {
+        block_on(async {
+            let events = stuttering([1, 2, 3])
+                .pairwise()
+                .map(|(a, b)| (*a, *b))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [(1, 2), (2, 3)]);
+        });
+    }
+}

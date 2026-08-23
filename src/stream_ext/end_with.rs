@@ -84,3 +84,40 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{test_util::stuttering, RxExt};
+
+    #[test]
+    fn appends_to_an_empty_source() {
+        block_on(async {
+            let events = stream::empty().end_with([1, 2]).collect::<Vec<_>>().await;
+
+            assert_eq!(events, [1, 2]);
+        });
+    }
+
+    #[test]
+    fn appending_nothing_leaves_the_source_untouched() {
+        block_on(async {
+            let events = stream::iter([1, 2]).end_with([]).collect::<Vec<_>>().await;
+
+            assert_eq!(events, [1, 2]);
+        });
+    }
+
+    #[test]
+    fn survives_a_source_that_is_not_always_ready() {
+        block_on(async {
+            let events = stuttering([1, 2])
+                .end_with([3, 4])
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 2, 3, 4]);
+        });
+    }
+}

@@ -30,3 +30,31 @@ impl<T: Clone> Clone for Notification<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn only_next_carries_a_value() {
+        assert_eq!(Notification::Next(1).inner_value(), Some(1));
+        assert_eq!(Notification::<i32>::Complete.inner_value(), None);
+    }
+
+    #[test]
+    fn compares_across_variants() {
+        assert_eq!(Notification::Next(1), Notification::Next(1));
+        assert_ne!(Notification::Next(1), Notification::Next(2));
+        assert_ne!(Notification::Next(1), Notification::Complete);
+        assert_eq!(Notification::<i32>::Complete, Notification::Complete);
+    }
+
+    #[test]
+    fn clones_both_variants() {
+        assert_eq!(Notification::Next(1).clone(), Notification::Next(1));
+        assert_eq!(
+            Notification::<i32>::Complete.clone(),
+            Notification::Complete
+        );
+    }
+}

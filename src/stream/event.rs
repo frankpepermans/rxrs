@@ -44,3 +44,55 @@ impl<T> From<T> for Event<T> {
         Event(value.into())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn derefs_to_the_inner_value() {
+        let event = Event::from(String::from("value"));
+
+        assert_eq!(event.borrow_value(), "value");
+        assert_eq!(event.len(), 5);
+        assert_eq!(&*event, "value");
+    }
+
+    #[test]
+    fn clones_share_one_value() {
+        let event = Event::from(vec![1, 2, 3]);
+        let clone = event.clone();
+
+        assert!(std::ptr::eq(event.borrow_value(), clone.borrow_value()));
+    }
+
+    #[test]
+    fn try_unwrap_yields_ownership_of_a_sole_reference() {
+        assert_eq!(Event::from(1).try_unwrap(), Ok(1));
+    }
+
+    #[test]
+    fn try_unwrap_fails_while_a_reference_is_shared() {
+        let event = Event::from(1);
+        let clone = event.clone();
+
+        assert!(event.try_unwrap().is_err());
+
+        drop(clone);
+    }
+
+    #[test]
+    fn unwrap_clones_a_shared_value() {
+        let event = Event::from(1);
+        let clone = event.clone();
+
+        assert_eq!(event.unwrap(), 1);
+        assert_eq!(clone.unwrap(), 1);
+    }
+
+    #[test]
+    fn compares_by_value_and_not_by_reference() {
+        assert_eq!(Event::from(1), Event::from(1));
+        assert_ne!(Event::from(1), Event::from(2));
+    }
+}

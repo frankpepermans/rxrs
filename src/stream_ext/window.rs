@@ -149,3 +149,58 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{test_util::stuttering, RxExt};
+
+    async fn flatten(
+        stream: impl futures::Stream<Item = futures::stream::Iter<std::vec::IntoIter<i32>>>,
+    ) -> Vec<Vec<i32>> {
+        stream
+            .then(|it| async { it.collect::<Vec<_>>().await })
+            .collect::<Vec<_>>()
+            .await
+    }
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let events =
+                flatten(stream::empty::<i32>().window(|_, count| async move { count == 2 })).await;
+
+            assert!(events.is_empty());
+        });
+    }
+
+    #[test]
+    fn a_trailing_partial_window_is_still_emitted() {
+        block_on(async {
+            let events =
+                flatten(stream::iter(0..=3).window(|_, count| async move { count == 3 })).await;
+
+            assert_eq!(events, [vec![0, 1, 2], vec![3]]);
+        });
+    }
+
+    #[test]
+    fn a_predicate_that_never_closes_yields_one_window() {
+        block_on(async {
+            let events = flatten(stream::iter(0..=3).window(|_, _| async { false })).await;
+
+            assert_eq!(events, [vec![0, 1, 2, 3]]);
+        });
+    }
+
+    #[test]
+    fn survives_a_source_that_is_not_always_ready() {
+        block_on(async {
+            let events =
+                flatten(stuttering(0..=3).window(|_, count| async move { count == 2 })).await;
+
+            assert_eq!(events, [vec![0, 1], vec![2, 3]]);
+        });
+    }
+}

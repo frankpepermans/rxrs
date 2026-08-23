@@ -92,7 +92,15 @@ where
                         }
                     }
                 }
-                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Ready(None) => {
+                    return Poll::Ready(
+                        if matches!(this.config, ThrottleConfig::All | ThrottleConfig::Trailing) {
+                            this.trailing.take()
+                        } else {
+                            None
+                        },
+                    )
+                }
                 Poll::Pending => return Poll::Pending,
             }
         }
@@ -171,5 +179,80 @@ mod test {
                 None
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+    use futures_time::{future::IntoFuture, time::Duration};
+
+    use crate::RxExt;
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let events = stream::empty::<i32>()
+                .throttle(|_| Duration::from_millis(10).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn leading_emits_the_first_event_of_a_burst() {
+        block_on(async {
+            let events = stream::iter(0..=9)
+                .throttle(|_| Duration::from_millis(50).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [0]);
+        });
+    }
+
+    #[test]
+    fn trailing_emits_the_last_event_of_a_burst() {
+        block_on(async {
+            let events = stream::iter(0..=9)
+                .throttle_trailing(|_| Duration::from_millis(50).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [9]);
+        });
+    }
+
+    #[test]
+    fn all_emits_both_ends_of_a_burst() {
+        block_on(async {
+            let events = stream::iter(0..=9)
+                .throttle_all(|_| Duration::from_millis(50).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [0, 9]);
+        });
+    }
+
+    #[test]
+    fn a_lone_event_is_emitted_by_leading_but_not_trailing() {
+        block_on(async {
+            let events = stream::iter([1])
+                .throttle(|_| Duration::from_millis(10).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1]);
+
+            let events = stream::iter([1])
+                .throttle_trailing(|_| Duration::from_millis(10).into_future())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
     }
 }

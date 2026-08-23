@@ -83,3 +83,57 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, Stream, StreamExt};
+
+    use crate::{test_util::stuttering, Notification, RxExt};
+
+    #[test]
+    fn an_empty_source_still_reports_completion() {
+        block_on(async {
+            let events = stream::empty::<i32>()
+                .materialize()
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [Notification::Complete]);
+        });
+    }
+
+    #[test]
+    fn completion_is_only_reported_once() {
+        block_on(async {
+            let mut stream = Box::pin(stream::iter([1]).materialize());
+
+            assert_eq!(stream.next().await, Some(Notification::Next(1)));
+            assert_eq!(stream.next().await, Some(Notification::Complete));
+            assert_eq!(stream.next().await, None);
+            assert_eq!(stream.next().await, None);
+        });
+    }
+
+    #[test]
+    fn survives_a_source_that_is_not_always_ready() {
+        block_on(async {
+            let events = stuttering([1, 2]).materialize().collect::<Vec<_>>().await;
+
+            assert_eq!(
+                events,
+                [
+                    Notification::Next(1),
+                    Notification::Next(2),
+                    Notification::Complete
+                ]
+            );
+        });
+    }
+
+    #[test]
+    fn size_hint_accounts_for_the_completion_event() {
+        let stream = stream::iter([1, 2, 3]).materialize();
+
+        assert_eq!(stream.size_hint(), (4, Some(4)));
+    }
+}

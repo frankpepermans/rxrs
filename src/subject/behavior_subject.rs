@@ -136,3 +136,82 @@ mod test {
         assert_eq!(subject.get_value(), &1);
     }
 }
+
+#[cfg(test)]
+mod value_test {
+    use futures::{executor::block_on, StreamExt};
+
+    use crate::{BehaviorSubject, Subject};
+
+    #[test]
+    fn a_late_subscriber_receives_the_current_value_first() {
+        block_on(async {
+            let mut subject = BehaviorSubject::new(0);
+
+            subject.next(1);
+            subject.next(2);
+
+            let observable = subject.subscribe();
+
+            subject.next(3);
+            subject.close();
+
+            assert_eq!(observable.map(|it| *it).collect::<Vec<_>>().await, [2, 3]);
+        });
+    }
+
+    #[test]
+    fn get_value_tracks_the_latest_event() {
+        let mut subject = BehaviorSubject::new(0);
+
+        assert_eq!(subject.get_value(), &0);
+
+        subject.next(1);
+
+        assert_eq!(subject.get_value(), &1);
+
+        subject.next(2);
+
+        assert_eq!(subject.get_value(), &2);
+    }
+
+    #[test]
+    fn subscribing_to_a_closed_subject_still_replays_the_current_value() {
+        block_on(async {
+            let mut subject = BehaviorSubject::new(0);
+
+            subject.next(1);
+            subject.close();
+
+            let observable = subject.subscribe();
+
+            assert_eq!(observable.map(|it| *it).collect::<Vec<_>>().await, [1]);
+        });
+    }
+
+    #[test]
+    fn completes_once_its_subject_is_dropped() {
+        block_on(async {
+            let mut subject = BehaviorSubject::new(0);
+            let observable = subject.subscribe();
+
+            subject.next(1);
+            drop(subject);
+
+            assert_eq!(observable.map(|it| *it).collect::<Vec<_>>().await, [0, 1]);
+        });
+    }
+
+    #[test]
+    fn dropping_a_subscriber_removes_its_subscription() {
+        let mut subject = BehaviorSubject::new(0);
+        let observable = subject.subscribe();
+
+        assert_eq!(subject.subscriptions.len(), 1);
+
+        drop(observable);
+        subject.next(1);
+
+        assert_eq!(subject.subscriptions.len(), 0);
+    }
+}

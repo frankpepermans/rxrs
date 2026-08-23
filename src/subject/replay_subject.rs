@@ -51,13 +51,18 @@ impl<T> Subject for ReplaySubject<T> {
     fn next(&mut self, value: Self::Item) {
         let rc = Arc::new(value);
 
-        if let ReplayStrategy::BufferSize(size) = &self.replay_strategy {
-            if self.buffer.len() == *size {
-                self.buffer.pop_front();
-            }
-        }
+        match &self.replay_strategy {
+            ReplayStrategy::BufferSize(size) => {
+                if *size > 0 {
+                    while self.buffer.len() >= *size {
+                        self.buffer.pop_front();
+                    }
 
-        self.buffer.push_back(Arc::clone(&rc));
+                    self.buffer.push_back(Arc::clone(&rc));
+                }
+            }
+            ReplayStrategy::Unbounded => self.buffer.push_back(Arc::clone(&rc)),
+        }
 
         self.for_each_subscription(|it| {
             it.write().unwrap().push(Event(Arc::clone(&rc)));
@@ -151,6 +156,133 @@ mod test {
 
             assert_eq!(events_a, []);
             assert_eq!(events_b, [1, 2, 3]);
+        });
+    }
+}
+
+#[cfg(test)]
+mod replay_test {
+    use futures::{executor::block_on, StreamExt};
+
+    use crate::{ReplaySubject, Subject};
+
+    #[test]
+    fn an_unbounded_subject_replays_every_event() {
+        block_on(async {
+            let mut subject = ReplaySubject::new();
+
+            for it in 1..=5 {
+                subject.next(it);
+            }
+
+            let observable = subject.subscribe();
+
+            subject.close();
+
+            assert_eq!(
+                observable.map(|it| *it).collect::<Vec<_>>().await,
+                [1, 2, 3, 4, 5]
+            );
+        });
+    }
+
+    #[test]
+    fn a_bounded_subject_replays_only_the_most_recent_events() {
+        block_on(async {
+            let mut subject = ReplaySubject::buffer_size(2);
+
+            for it in 1..=5 {
+                subject.next(it);
+            }
+
+            let observable = subject.subscribe();
+
+            subject.close();
+
+            assert_eq!(observable.map(|it| *it).collect::<Vec<_>>().await, [4, 5]);
+        });
+    }
+
+    #[test]
+    fn buffer_len_never_exceeds_the_buffer_size() {
+        let mut subject = ReplaySubject::buffer_size(3);
+
+        assert_eq!(subject.buffer_len(), 0);
+
+        for expected in [1, 2, 3, 3, 3] {
+            subject.next(0);
+
+            assert_eq!(subject.buffer_len(), expected);
+        }
+    }
+
+    #[test]
+    fn an_unbounded_buffer_grows_with_every_event() {
+        let mut subject = ReplaySubject::new();
+
+        for expected in 1..=5 {
+            subject.next(0);
+
+            assert_eq!(subject.buffer_len(), expected);
+        }
+    }
+
+    #[test]
+    fn a_replayed_event_is_also_delivered_live() {
+        block_on(async {
+            let mut subject = ReplaySubject::new();
+
+            subject.next(1);
+
+            let observable = subject.subscribe();
+
+            subject.next(2);
+            subject.close();
+
+            assert_eq!(observable.map(|it| *it).collect::<Vec<_>>().await, [1, 2]);
+        });
+    }
+
+    #[test]
+    fn subscribing_to_a_closed_subject_still_replays_the_buffer() {
+        block_on(async {
+            let mut subject = ReplaySubject::new();
+
+            subject.next(1);
+            subject.next(2);
+            subject.close();
+
+            let observable = subject.subscribe();
+
+            assert_eq!(observable.map(|it| *it).collect::<Vec<_>>().await, [1, 2]);
+        });
+    }
+
+    #[test]
+    fn a_buffer_size_of_zero_replays_nothing() {
+        block_on(async {
+            let mut subject = ReplaySubject::buffer_size(0);
+
+            subject.next(1);
+
+            let observable = subject.subscribe();
+
+            subject.close();
+
+            assert_eq!(observable.map(|it| *it).collect::<Vec<_>>().await, []);
+        });
+    }
+
+    #[test]
+    fn completes_once_its_subject_is_dropped() {
+        block_on(async {
+            let mut subject = ReplaySubject::new();
+            let observable = subject.subscribe();
+
+            subject.next(1);
+            drop(subject);
+
+            assert_eq!(observable.map(|it| *it).collect::<Vec<_>>().await, [1]);
         });
     }
 }

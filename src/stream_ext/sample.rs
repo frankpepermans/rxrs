@@ -63,7 +63,7 @@ impl<S1: Stream, S2: Stream> Stream for Sample<S1, S2> {
                     Poll::Pending
                 }
             }
-            Poll::Ready(None) => Poll::Ready(this.latest_event.take()),
+            Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,
         }
     }
@@ -101,6 +101,52 @@ mod test {
             let all_events = stream.sample(sampler).collect::<Vec<_>>().await;
 
             assert_eq!(all_events, [1, 3, 5]);
+        });
+    }
+}
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+    use futures_time::time::Duration;
+
+    use crate::RxExt;
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let sampler = futures_time::stream::interval(Duration::from_millis(5)).take(3);
+            let events = stream::empty::<i32>()
+                .sample(sampler)
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn a_sampler_that_never_ticks_emits_nothing() {
+        block_on(async {
+            let events = stream::iter(0..=3)
+                .sample(stream::empty::<()>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn only_the_most_recent_event_survives_a_tick() {
+        block_on(async {
+            let sampler = futures_time::stream::interval(Duration::from_millis(30)).take(1);
+            let events = stream::iter(0..=9)
+                .sample(sampler)
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [9]);
         });
     }
 }

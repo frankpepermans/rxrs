@@ -86,6 +86,12 @@ macro_rules! combine_latest {
                                 this.[<$type:lower>].as_ref().unwrap().to_owned()
                             ),+
                         )))
+                    } else if $(
+                        (this.[<$stream:lower>].is_terminated() && this.[<$type:lower>].is_none())
+                    )||+ {
+                        // a source that completed without ever emitting can
+                        // never contribute to a combination
+                        Poll::Ready(None)
                     } else if $(this.[<$stream:lower>].is_terminated())&&+ {
                         Poll::Ready(None)
                     } else {
@@ -148,4 +154,100 @@ fn test() {
 
         assert_eq!(res, [(1, 6, 0), (2, 7, 0), (3, 8, 0), (3, 9, 0),]);
     });
+}
+
+#[cfg(test)]
+mod test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{test_util::stuttering, CombineLatest2, CombineLatest3, CombineLatest9};
+
+    #[test]
+    fn pairs_the_latest_value_of_each_source() {
+        block_on(async {
+            let events = CombineLatest2::new(stream::iter(1..=3), stream::iter(7..=9))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert!(!events.is_empty());
+            assert_eq!(events.last(), Some(&(3, 9)));
+        });
+    }
+
+    #[test]
+    fn emits_nothing_until_every_source_has_produced_a_value() {
+        block_on(async {
+            let events = CombineLatest2::new(stream::iter(1..=3), stream::empty::<i32>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn an_empty_first_source_yields_nothing() {
+        block_on(async {
+            let events = CombineLatest2::new(stream::empty::<i32>(), stream::iter(1..=3))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, []);
+        });
+    }
+
+    #[test]
+    fn a_single_value_from_each_source_yields_one_pair() {
+        block_on(async {
+            let events = CombineLatest2::new(stream::iter([1]), stream::iter([2]))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [(1, 2)]);
+        });
+    }
+
+    #[test]
+    fn combines_three_sources() {
+        block_on(async {
+            let events =
+                CombineLatest3::new(stream::iter([1]), stream::iter(["a"]), stream::iter([true]))
+                    .collect::<Vec<_>>()
+                    .await;
+
+            assert_eq!(events, [(1, "a", true)]);
+        });
+    }
+
+    #[test]
+    fn combines_nine_sources() {
+        block_on(async {
+            let events = CombineLatest9::new(
+                stream::iter([1]),
+                stream::iter([2]),
+                stream::iter([3]),
+                stream::iter([4]),
+                stream::iter([5]),
+                stream::iter([6]),
+                stream::iter([7]),
+                stream::iter([8]),
+                stream::iter([9]),
+            )
+            .collect::<Vec<_>>()
+            .await;
+
+            assert_eq!(events, [(1, 2, 3, 4, 5, 6, 7, 8, 9)]);
+        });
+    }
+
+    #[test]
+    fn survives_sources_that_are_not_always_ready() {
+        block_on(async {
+            let events = CombineLatest2::new(stuttering(1..=3), stuttering(7..=9))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events.last(), Some(&(3, 9)));
+        });
+    }
 }

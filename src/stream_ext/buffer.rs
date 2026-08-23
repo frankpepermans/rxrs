@@ -153,3 +153,90 @@ mod test {
         });
     }
 }
+
+#[cfg(test)]
+mod edge_test {
+    use futures::{executor::block_on, stream, StreamExt};
+
+    use crate::{test_util::stuttering, RxExt};
+
+    #[test]
+    fn an_empty_source_emits_nothing() {
+        block_on(async {
+            let events = stream::empty::<i32>()
+                .buffer(|_, count| async move { count == 2 })
+                .collect::<Vec<_>>()
+                .await;
+
+            assert!(events.is_empty());
+        });
+    }
+
+    #[test]
+    fn a_trailing_partial_buffer_is_still_emitted() {
+        block_on(async {
+            let events = stream::iter(0..=3)
+                .buffer(|_, count| async move { count == 3 })
+                .map(|it| it.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [vec![0, 1, 2], vec![3]]);
+        });
+    }
+
+    #[test]
+    fn a_predicate_that_never_closes_yields_one_buffer() {
+        block_on(async {
+            let events = stream::iter(0..=3)
+                .buffer(|_, _| async { false })
+                .map(|it| it.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [vec![0, 1, 2, 3]]);
+        });
+    }
+
+    #[test]
+    fn a_predicate_that_always_closes_yields_one_event_per_buffer() {
+        block_on(async {
+            let events = stream::iter(0..=2)
+                .buffer(|_, _| async { true })
+                .map(|it| it.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [vec![0], vec![1], vec![2]]);
+        });
+    }
+
+    #[test]
+    fn the_predicate_sees_a_running_count() {
+        block_on(async {
+            let events = stream::iter(0..=5)
+                .buffer(|item, count| {
+                    let item = *item;
+                    async move { item % 2 == 1 && count > 1 }
+                })
+                .map(|it| it.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [vec![0, 1], vec![2, 3], vec![4, 5]]);
+        });
+    }
+
+    #[test]
+    fn survives_a_source_that_is_not_always_ready() {
+        block_on(async {
+            let events = stuttering(0..=3)
+                .buffer(|_, count| async move { count == 2 })
+                .map(|it| it.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [vec![0, 1], vec![2, 3]]);
+        });
+    }
+}
