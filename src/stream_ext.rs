@@ -17,10 +17,9 @@ use start_with::StartWith;
 use switch_map::SwitchMap;
 use timing::{Timed, Timing};
 use window::Window;
+use with_latest_from::WithLatestFrom;
 
-use crate::{
-    BehaviorSubject, CombineLatest2, Event, EventLite, Notification, PublishSubject, ReplaySubject,
-};
+use crate::{BehaviorSubject, Event, EventLite, Notification, PublishSubject, ReplaySubject};
 
 use self::{delay::Delay, end_with::EndWith, throttle::Throttle};
 
@@ -43,6 +42,7 @@ pub mod switch_map;
 pub mod throttle;
 pub mod timing;
 pub mod window;
+pub mod with_latest_from;
 
 impl<T: ?Sized> RxExt for T where T: Stream {}
 pub trait RxExt: Stream {
@@ -643,8 +643,15 @@ pub trait RxExt: Stream {
         assert_stream::<Self::Item, _>(DelayEvery::new(self, f, max_buffer_size))
     }
 
-    /// Acts just like a `CombineLatest2`, where every next event is a tuple pair
-    /// containing the last emitted events from both `Stream`s.
+    /// Pairs every event of this `Stream` with the most recent event of another one.
+    ///
+    /// Only this `Stream` drives emissions: an event from the other `Stream` merely
+    /// updates the value that the next pair will carry. Events emitted before the
+    /// other `Stream` has produced anything are dropped, and the output completes
+    /// when this `Stream` completes, even if the other one is still running.
+    ///
+    /// Use [`CombineLatest2`](crate::CombineLatest2) instead to emit whenever
+    /// *either* `Stream` produces an event.
     ///
     /// Note that this function consumes the stream passed into it and returns a
     /// wrapped version of it.
@@ -657,20 +664,19 @@ pub trait RxExt: Stream {
     /// use futures_rx::RxExt;
     ///
     /// let stream = stream::iter(0..=3);
-    /// let stream = stream.with_latest_from(stream::iter(0..=3));
+    /// let stream = stream.with_latest_from(stream::iter([9]));
     ///
-    /// assert_eq!(vec![(0, 0), (1, 1), (2, 2), (3, 3)], stream.collect::<Vec<_>>().await);
+    /// assert_eq!(vec![(0, 9), (1, 9), (2, 9), (3, 9)], stream.collect::<Vec<_>>().await);
     /// # });
     ///
     /// #
     /// ```
-    fn with_latest_from<S: Stream>(self, stream: S) -> CombineLatest2<Self, S, Self::Item, S::Item>
+    fn with_latest_from<S: Stream>(self, stream: S) -> WithLatestFrom<Self, S>
     where
         Self: Sized,
-        Self::Item: ToOwned<Owned = Self::Item>,
-        S::Item: ToOwned<Owned = S::Item>,
+        S::Item: Clone,
     {
-        assert_stream::<(Self::Item, S::Item), _>(CombineLatest2::new(self, stream))
+        assert_stream::<(Self::Item, S::Item), _>(WithLatestFrom::new(self, stream))
     }
 
     /// Wraps each item into a `Timed` struct.

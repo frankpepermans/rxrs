@@ -37,7 +37,7 @@ impl<S: Stream, St: Stream, F: FnMut(S::Item) -> St> FusedStream for SwitchMap<S
             self.switch_stream
                 .as_ref()
                 .map(|it| it.is_terminated())
-                .unwrap_or(false)
+                .unwrap_or(true)
         } else {
             false
         }
@@ -52,26 +52,31 @@ where
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
-        let is_done = match this.stream.as_mut().poll_next(cx) {
-            Poll::Ready(Some(event)) => {
+
+        loop {
+            let outer = this.stream.as_mut().poll_next(cx);
+            let did_switch = matches!(outer, Poll::Ready(Some(_)));
+            let is_done = matches!(outer, Poll::Ready(None));
+
+            if let Poll::Ready(Some(event)) = outer {
                 this.switch_stream.set((this.f)(event).fuse().into());
-
-                false
             }
-            Poll::Ready(None) => true,
-            Poll::Pending => false,
-        };
 
-        this.switch_stream
-            .as_pin_mut()
-            .map(|it| it.poll_next(cx))
-            .unwrap_or_else(|| {
-                if is_done {
-                    Poll::Ready(None)
-                } else {
-                    Poll::Pending
-                }
-            })
+            match this.switch_stream.as_mut().as_pin_mut() {
+                Some(switch_stream) => match switch_stream.poll_next(cx) {
+                    Poll::Ready(Some(event)) => return Poll::Ready(Some(event)),
+                    // an exhausted inner stream only ends the output once the
+                    // outer stream has nothing left to switch to
+                    Poll::Ready(None) if is_done => return Poll::Ready(None),
+                    Poll::Ready(None) if !did_switch => return Poll::Pending,
+                    Poll::Ready(None) => {}
+                    Poll::Pending => return Poll::Pending,
+                },
+                None if is_done => return Poll::Ready(None),
+                None if !did_switch => return Poll::Pending,
+                None => {}
+            }
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -166,6 +171,36 @@ mod edge_test {
 
     /// An always-ready source outruns its inner streams, so each is cut short
     /// by the next switch.
+    #[test]
+    fn an_exhausted_inner_stream_does_not_end_the_output() {
+        block_on(async {
+            let events = stuttering([1, 2, 3])
+                .switch_map(|it| stream::iter([it]))
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 2, 3]);
+        });
+    }
+
+    #[test]
+    fn an_empty_inner_stream_does_not_end_the_output() {
+        block_on(async {
+            let events = stuttering([1, 2, 3])
+                .switch_map(|it| {
+                    if it == 2 {
+                        stream::iter(vec![])
+                    } else {
+                        stream::iter(vec![it])
+                    }
+                })
+                .collect::<Vec<_>>()
+                .await;
+
+            assert_eq!(events, [1, 3]);
+        });
+    }
+
     #[test]
     fn an_eager_source_cuts_each_inner_stream_short() {
         block_on(async {

@@ -4,6 +4,30 @@
 [![](https://img.shields.io/crates/v/futures-rx.svg)](https://crates.io/crates/futures-rx)
 [![](https://img.shields.io/crates/d/futures-rx.svg)](https://crates.io/crates/futures-rx)
 
+## Getting started
+
+Add the crate, then import the prelude to bring the operators, subjects and event types into scope:
+
+```rust
+use futures::{executor::block_on, stream::{self, StreamExt}};
+use futures_rx::prelude::*;
+
+block_on(async {
+    let events = stream::iter([1, 1, 2, 2, 3])
+        .distinct_until_changed()
+        .collect::<Vec<_>>()
+        .await;
+
+    assert_eq!(events, [1, 2, 3]);
+});
+```
+
+The crate root re-exports the same set, so `futures_rx::PublishSubject` and
+`futures_rx::prelude::PublishSubject` are the same type. Pick whichever you prefer.
+
+For a worked, multi-threaded example combining several operators with subjects, see
+[`examples/typeahead.rs`](examples/typeahead.rs) and run it with `cargo run --example typeahead`.
+
 ## Subjects
 
 Subjects are `Stream` controllers, that allow pushing new events to them, comparable to collections.
@@ -123,7 +147,7 @@ futures::executor::block_on(async {
     use futures_rx::RxExt;
 
     let stream = stream::iter(0..9);
-    let stream = stream.window(|_, count| async move { count == 3 }).flat_map(|it| it);
+    let stream = stream.buffer(|_, count| async move { count == 3 }).flat_map(|it| it);
 
     assert_eq!(vec![0, 1, 2, 3, 4, 5, 6, 7, 8], stream.collect::<Vec<_>>().await);
 });
@@ -432,11 +456,15 @@ futures::executor::block_on(async {
 ```
 
 ## with_latest_from
+Pairs every event of the source with the most recent event of another `Stream`.
+Only the source drives emissions, and the output completes when the source does.
+Use `CombineLatest2` instead to emit whenever _either_ `Stream` produces an event.
+
 ```rust
 futures::executor::block_on(async {
     let stream = stream::iter(0..=3);
-    let stream = stream.with_latest_from(stream::iter(0..=3));
+    let stream = stream.with_latest_from(stream::iter([9]));
 
-    assert_eq!(vec![(0, 0), (1, 1), (2, 2), (3, 3)], stream.collect::<Vec<_>>().await);
+    assert_eq!(vec![(0, 9), (1, 9), (2, 9), (3, 9)], stream.collect::<Vec<_>>().await);
 });    
 ```
